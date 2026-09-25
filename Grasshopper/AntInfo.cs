@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using Grasshopper.Kernel;
 
@@ -6,6 +6,8 @@ namespace Ant.GrasshopperPlugIn
 {
     public class AntInfo : GH_AssemblyInfo
     {
+        public override string Version => typeof(AntInfo).Assembly.GetName().Version.ToString(3);
+
         public override string Name
         {
             get
@@ -18,7 +20,7 @@ namespace Ant.GrasshopperPlugIn
             get
             {
                 //Return a 24x24 pixel bitmap to represent this GHA library.
-                return null;
+                return Properties.Resources.PlugInIcon;
             }
         }
         public override string Description

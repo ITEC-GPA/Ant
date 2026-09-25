@@ -11,7 +11,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace Ant.GrasshopperPlugIn.Components
 {
@@ -19,7 +18,7 @@ namespace Ant.GrasshopperPlugIn.Components
 	{
 		public class SolveResults
 		{
-			public List<GH_Mesh> Value { get; set; }
+			public List<GH_Mesh> Value { get; set; } = new List<GH_Mesh>();
 			public List<string> Errors { get; set; }
 			public List<string> Warnings { get; set; }
 			public List<Exception> Exceptions { get; set; }
@@ -92,9 +91,13 @@ namespace Ant.GrasshopperPlugIn.Components
 			pManager.AddMeshParameter("Mesh", "M", "The resulting mesh", GH_ParamAccess.list);
 		}
 
-		protected override void BeforeSolveInstance()
+		protected override void AfterSolveInstance()
 		{
-			base.BeforeSolveInstance();
+			// Keep the request through every branch and through the task collection pass.
+			bool completed = !InPreSolve;
+			base.AfterSolveInstance();
+			if (completed)
+				_run = false;
 		}
 
 		protected (List<GPC.Geometry.Shape> shapes, Dictionary<GPC.Geometry.Shape, GPC.Geometry.GeometryBase[]> embeddedGeometries,
@@ -106,10 +109,13 @@ namespace Ant.GrasshopperPlugIn.Components
 			Dictionary<GPC.Geometry.Shape, GPC.Geometry.GeometryBase[]> embeddedGeometries = new Dictionary<GPC.Geometry.Shape, GPC.Geometry.GeometryBase[]>();
 			Dictionary<GPC.Geometry.GeometryBase, double> embeddedGeometriesMeshSize = new Dictionary<GPC.Geometry.GeometryBase, double>();
 
+			var faceBreps = new List<Brep>();
 			try
 			{
+				MeshInputGeometry.SplitFaces(surfaces, faceBreps);
+				surfaces = faceBreps;
 				HashSet<IGH_GeometricGoo> hashSet = new HashSet<IGH_GeometricGoo>();
-				int embCountToRemove = 0;
+
 
 				for (int b = 0; b < surfaces.Count; b++)
 				{
@@ -125,14 +131,16 @@ namespace Ant.GrasshopperPlugIn.Components
 
 						GPC.Geometry.Polygon3d polygon = new GPC.Geometry.Polygon3d();
 
-						Curve curve = surfaces[b].Loops[loop].To3dCurve();
+						using Curve curve = surfaces[b].Loops[loop].To3dCurve();
+						if (curve == null)
+							throw new InvalidOperationException("A surface loop could not be read.");
 
 						if (curve.Degree > 1)
 						{
 							PolylineCurve polylineCurve = null;
 							try
 							{
-								polylineCurve = ToPolylineCurve(curve, calcTolerance, size);
+								polylineCurve = ToPolylineCurve(curve, calcTolerance, size) ?? throw new InvalidOperationException("Curve conversion failed.");
 							}
 							catch (Exception)
 							{
@@ -179,6 +187,9 @@ namespace Ant.GrasshopperPlugIn.Components
 							}
 						}
 
+						if (polygon.Count() < 3)
+							throw new ArgumentException("A surface loop has fewer than three distinct vertices after matching.");
+
 						if (surfaces[b].Loops[loop].LoopType == BrepLoopType.Outer)
 						{
 							fill = polygon;
@@ -213,7 +224,7 @@ namespace Ant.GrasshopperPlugIn.Components
 								{
 									if (constraints[ct] is GH_Point point && embed == false)
 									{
-										if (surfaces[b].ClosestPoint(point.Value, out Point3d closest, out _, out _, out _, rhinoEmbedTolerance, out _))
+										if (surfaces[b].ClosestPoint(point.Value, out Point3d closest, out _, out _, out _, rhinoEmbedTolerance, out _) && closest.DistanceTo(point.Value) <= rhinoEmbedTolerance)
 										{
 											GPC.Geometry.Point3d p = new GPC.Geometry.Point3d(closest.X, closest.Y, closest.Z);
 											geoms.Add(p);
@@ -221,174 +232,37 @@ namespace Ant.GrasshopperPlugIn.Components
 											embed = true;
 										}
 									}
-									else if (constraints[ct] is GH_Line line && embed == false)
+									else if (constraints[ct] is GH_Line line)
+                                    {
+                                        if (MeshInputGeometry.TryProjectLine(surfaces[b], line.Value, rhinoEmbedTolerance, out var projected))
+                                        {
+                                            geoms.Add(new GPC.Geometry.Line3d(
+                                                new GPC.Geometry.Point3d(projected.FromX, projected.FromY, projected.FromZ),
+                                                new GPC.Geometry.Point3d(projected.ToX, projected.ToY, projected.ToZ)));
+                                            hashSet.Add(constraints[ct]);
+                                        }
+                                    }
+                                    else if (constraints[ct] is GH_Curve curve)
 									{
-										var startPt = line.Value.From;
-										var endPt = line.Value.To;
-
-										if (surfaces[b].ClosestPoint(startPt, out Point3d cp1, out _, out _, out _, rhinoEmbedTolerance, out _) &&
-											surfaces[b].ClosestPoint(endPt, out Point3d cp2, out _, out _, out _, rhinoEmbedTolerance, out _))
+										if (MeshInputGeometry.TryProjectCurve(surfaces[b], curve.Value,
+											rhinoEmbedTolerance, calcTolerance, size, out var segments))
 										{
-											if (cp1 != null && cp2 != null)
-											{
-												GPC.Geometry.Line3d l = new GPC.Geometry.Line3d(new GPC.Geometry.Point3d(cp1.X, cp1.Y, cp1.Z), new GPC.Geometry.Point3d(cp2.X, cp2.Y, cp2.Z));
-												geoms.Add(l);
-												hashSet.Add(constraints[ct]);
-												embed = true;
-											}
-											else if ((cp1 == null && cp2 != null) || (cp2 == null && cp1 != null))
-											{
-												_warnings.Add($"Line with start: {cp1.X}, {cp1.Y}, {cp1.Z} and end: {cp2.X}, {cp2.Y}, {cp2.Z} is not valid: it must be on only one shape");
-												continue;
-											}
-										}
-									}
-									else if (constraints[ct] is GH_Curve curve && embed == false)
-									{
-										if (curve.Value is LineCurve lc && embed == false)
-										{
-											var ptStart = lc.PointAtStart;
-											var ptEnd = lc.PointAtEnd;
-
-											if (surfaces[b].ClosestPoint(ptStart, out Point3d cp1, out _, out _, out _, rhinoEmbedTolerance, out _) &&
-												surfaces[b].ClosestPoint(ptEnd, out Point3d cp2, out _, out _, out _, rhinoEmbedTolerance, out _))
-											{
-												if (cp1 != null && cp2 != null)
-												{
-													GPC.Geometry.Line3d l = new GPC.Geometry.Line3d(new GPC.Geometry.Point3d(cp1.X, cp1.Y, cp1.Z), new GPC.Geometry.Point3d(cp2.X, cp2.Y, cp2.Z));
-													geoms.Add(l);
-													hashSet.Add(constraints[ct]);
-													embed = true;
-												}
-												else if ((cp1 == null && cp2 != null) || (cp2 == null && cp1 != null))
-												{
-													_warnings.Add($"Line with start: {cp1.X}, {cp1.Y}, {cp1.Z} and end: {cp2.X}, {cp2.Y}, {cp2.Z} is not valid: it must be on only one shape");
-													continue;
-												}
-											}
-										}
-										else if (curve.Value is PolylineCurve pline)
-										{
-											bool add = true;
-
-											for (int i = 0; i < pline.PointCount - 1; i++)
-											{
-												Point3d p1 = pline.Point(i);
-												Point3d p2 = pline.Point(i + 1);
-
-												if (surfaces[b].ClosestPoint(p1, out Point3d cp1, out _, out _, out _, rhinoEmbedTolerance, out _) &&
-													surfaces[b].ClosestPoint(p2, out Point3d cp2, out _, out _, out _, rhinoEmbedTolerance, out _))
-												{
-													if (cp1 != null && cp2 != null)
-													{
-														GPC.Geometry.Line3d l = new GPC.Geometry.Line3d(new GPC.Geometry.Point3d(cp1.X, cp1.Y, cp1.Z), new GPC.Geometry.Point3d(cp2.X, cp2.Y, cp2.Z));
-														geoms.Add(l);
-														embed = true;
-
-														if (i != 0)
-															embCountToRemove++;
-													}
-													else if ((cp1 == null && cp2 != null) || (cp2 == null && cp1 != null))
-													{
-														_warnings.Add($"Line with start: {cp1.X}, {cp1.Y}, {cp1.Z} and end: {cp2.X}, {cp2.Y}, {cp2.Z} is not valid: it must be on only one shape");
-														add = false;
-														continue;
-													}
-												}
-											}
-
-											if (add)
-												hashSet.Add(constraints[ct]);
-										}
-										else if (curve.Value is Curve c && embed == false)
-										{
-											bool add = true;
-											PolylineCurve polylineCurve = ToPolylineCurve(c, calcTolerance, size);
-
-											for (int i = 0; i < polylineCurve.PointCount - 1; i++)
-											{
-												Point3d p1 = polylineCurve.Point(i);
-												Point3d p2 = polylineCurve.Point(i + 1);
-
-												if (surfaces[b].ClosestPoint(p1, out Point3d cp1, out _, out _, out _, rhinoEmbedTolerance, out _) &&
-													surfaces[b].ClosestPoint(p2, out Point3d cp2, out _, out _, out _, rhinoEmbedTolerance, out _))
-												{
-													if (cp1 != null && cp2 != null)
-													{
-														GPC.Geometry.Line3d l = new GPC.Geometry.Line3d(new GPC.Geometry.Point3d(cp1.X, cp1.Y, cp1.Z), new GPC.Geometry.Point3d(cp2.X, cp2.Y, cp2.Z));
-														geoms.Add(l);
-														embed = true;
-
-														if (i != 0)
-															embCountToRemove++;
-													}
-													else if ((cp1 == null && cp2 != null) || (cp2 == null && cp1 != null))
-													{
-														_warnings.Add($"Line with start: {cp1.X}, {cp1.Y}, {cp1.Z} and end: {cp2.X}, {cp2.Y}, {cp2.Z} is not valid: it must be on only one shape");
-														add = false;
-														continue;
-													}
-												}
-											}
-
-											if (add)
-												hashSet.Add(constraints[ct]);
-										}
-									}
-									else if (constraints[ct] is GH_Surface embSurf)
-									{
-										GPC.Geometry.Point3d[] points = new GPC.Geometry.Point3d[embSurf.Value.Vertices.Count];
-										bool added = true;
-
-										for (int i = 0; i < embSurf.Value.Vertices.Count; i++)
-										{
-											var pt = embSurf.Value.Vertices[i].Location;
-											if (surfaces[b].ClosestPoint(pt, out Point3d cp, out _, out _, out _, rhinoEmbedTolerance, out _))
-												points[i] = new GPC.Geometry.Point3d(cp.X, cp.Y, cp.Z);
-
-											else if (cp == null)
-											{
-												added = false;
-												_warnings.Add($"Point: {pt.X}, {pt.Y}, {pt.Z} of surface {embSurf} is not valid: it must be on one shape");
-												continue;
-											}
-										}
-										if (added)
-										{
-											GPC.Geometry.Shape s = new GPC.Geometry.Shape(new GPC.Geometry.Polygon3d(points, calcTolerance));
-
-											geoms.Add(s);
+											geoms.AddRange(segments.Select(l => (GPC.Geometry.GeometryBase)new GPC.Geometry.Line3d(
+												new GPC.Geometry.Point3d(l.FromX, l.FromY, l.FromZ),
+												new GPC.Geometry.Point3d(l.ToX, l.ToY, l.ToZ))));
 											hashSet.Add(constraints[ct]);
-											embed = true;
 										}
 									}
-									else if (constraints[ct] is GH_Brep brep)
-									{
-										GPC.Geometry.Point3d[] points = new GPC.Geometry.Point3d[brep.Value.Vertices.Count];
-										bool added = true;
-
-										for (int i = 0; i < brep.Value.Vertices.Count; i++)
-										{
-											bool addedBuffer = true;
-
-											var pt = brep.Value.Vertices[i].Location;
-											addedBuffer = surfaces[b].ClosestPoint(pt, out Point3d cp, out _, out _, out _, rhinoEmbedTolerance, out _);
-
-											if (addedBuffer)
-												points[i] = new GPC.Geometry.Point3d(cp.X, cp.Y, cp.Z);
-											else
-												added = false;
-										}
-										if (added)
-										{
-											GPC.Geometry.Shape s = new GPC.Geometry.Shape(new GPC.Geometry.Polygon3d(points, calcTolerance));
-
-											geoms.Add(s);
-											hashSet.Add(constraints[ct]);
-											embed = true;
-										}
-									}
-								}
+									else if (constraints[ct] is GH_Surface || constraints[ct] is GH_Brep)
+                                    {
+                                        var region = constraints[ct] is GH_Surface s ? s.Value : ((GH_Brep)constraints[ct]).Value;
+                                        if (MeshInputGeometry.TryProjectRegion(surfaces[b], region, rhinoEmbedTolerance, calcTolerance, out var projected))
+                                        {
+                                            geoms.AddRange(projected);
+                                            hashSet.Add(constraints[ct]);
+                                        }
+                                    }
+                                }
 							}
 						}
 
@@ -396,92 +270,23 @@ namespace Ant.GrasshopperPlugIn.Components
 
 						#region Refinement
 
-						if (refinements != null)
-						{
-							for (int r = 0; r < refinements.Count; r++)
-							{
-								if (refinements[r] == null)
-									continue;
-								if (!hashSet.Contains(refinements[r]))
-								{
-									if (refinements[r] is MeshPointRefinement point)
-									{
-										if (surfaces[b].ClosestPoint(point.Geometry, out Point3d closest, out _, out _, out _, rhinoEmbedTolerance, out _))
-										{
-											GPC.Geometry.Point3d pt = new GPC.Geometry.Point3d(closest.X, closest.Y, closest.Z);
-											if (!geoms.Contains(pt))
-											{
-												geoms.Add(pt);
-												embeddedGeometriesMeshSize.Add(pt, point.Size);
-												hashSet.Add(refinements[r]);
-											}
-										}
-										else
-										{
-											_warnings.Add($"point {closest.X}, {closest.Y}, {closest.Z} is not on plane or internal");
-										}
-									}
-									else if (refinements[r] is MeshLineRefinement line)
-									{
-										var ptStart = line.Geometry.From;
-										var ptEnd = line.Geometry.To;
+                        foreach (var refinement in refinements ?? new List<IGH_GeometricGoo>())
+                        {
+                            if (refinement == null || hashSet.Contains(refinement)) continue;
+                            if (!MeshInputGeometry.TryProjectRefinement(surfaces[b], refinement, rhinoEmbedTolerance,
+                                calcTolerance, size, out var projected, out double localSize)) continue;
+                            foreach (var candidate in projected)
+                            {
+                                var existing = geoms.FirstOrDefault(g => g.Equals(candidate));
+                                var geometry = existing ?? candidate;
+                                if (existing == null) geoms.Add(geometry);
+                                embeddedGeometriesMeshSize[geometry] = Math.Min(localSize,
+                                    embeddedGeometriesMeshSize.TryGetValue(geometry, out double previous) ? previous : double.PositiveInfinity);
+                            }
+                            hashSet.Add(refinement);
+                        }
 
-										if (surfaces[b].ClosestPoint(ptStart, out Point3d cp1, out _, out _, out _, rhinoEmbedTolerance, out _) &&
-											surfaces[b].ClosestPoint(ptEnd, out Point3d cp2, out _, out _, out _, rhinoEmbedTolerance, out _))
-										{
-											GPC.Geometry.Line3d line3d = new GPC.Geometry.Line3d(new GPC.Geometry.Point3d(cp1.X, cp1.Y, cp1.Z), new GPC.Geometry.Point3d(cp2.X, cp2.Y, cp2.Z));
-											if (!geoms.Contains(line3d))
-											{
-												if (cp1 != null && cp2 != null)
-												{
-													geoms.Add(line3d);
-													embeddedGeometriesMeshSize.Add(line3d, line.Size);
-													hashSet.Add(refinements[r]);
-												}
-												else if ((cp1 == null && cp2 != null) || (cp2 == null && cp1 != null))
-												{
-													_warnings.Add($"Line with start: {cp1.X}, {cp1.Y}, {cp1.Z} and end: {cp2.X}, {cp2.Y}, {cp2.Z} is not valid: it must be on only one shape");
-													continue;
-												}
-											}
-										}
-									}
-									else if (refinements[r] is MeshPolylineRefinement poly)
-									{
-										GPC.Geometry.Polygon3d polygon = new GPC.Geometry.Polygon3d();
-										bool check = true;
-										foreach (Point3d pt in poly.Geometry)
-										{
-											if (surfaces[b].ClosestPoint(pt, out Point3d cp1, out _, out _, out _, rhinoEmbedTolerance, out _))
-											{
-												polygon.Add(new GPC.Geometry.Point3d(cp1.X, cp1.Y, cp1.Z));
-											}
-											else
-											{
-												check = false;
-												_warnings.Add($"point {cp1.X}, {cp1.Y}, {cp1.Z} is not on plane or internal");
-											}
-										}
-										if (check)
-										{
-											if (!geoms.Contains(polygon))
-											{
-												geoms.Add(polygon);
-												embeddedGeometriesMeshSize.Add(polygon, poly.Size);
-												hashSet.Add(refinements[r]);
-											}
-											else
-											{
-												_warnings.Add($"Fail to embed the polygon");
-												continue;
-											}
-										}
-									}
-								}
-							}
-						}
-
-						#endregion
+                        #endregion
 
 						if (geoms.Count > 0)
 						{
@@ -490,12 +295,15 @@ namespace Ant.GrasshopperPlugIn.Components
 
 						geoms.Clear();
 					}
+					else
+						_errors.Add($"Face {b} has no valid outer loop.");
 				}
 
-				if ((constraints.Count + refinements.Count) != (embeddedGeometries.Select(i => i.Value.Count()).Sum() - embCountToRemove))
-					_warnings.Add($"Costrain embedded to mesh: {embeddedGeometries.Select(i => i.Value.Count()).Sum()} of {constraints.Count}. " +
-									$"Refinement embedded to mesh {embeddedGeometriesMeshSize.Select(i => i.Value).Sum()} of {refinements.Count}. " +
-									$"Failed to match the geometry with a surface. Try to increase the tolerance");
+				int unmatchedConstraints = constraints.Count(g => g != null && !hashSet.Contains(g));
+				int unmatchedRefinements = refinements.Count(g => g != null && !hashSet.Contains(g));
+				if (unmatchedConstraints > 0 || unmatchedRefinements > 0)
+					_warnings.Add($"Unmatched embedded geometries: {unmatchedConstraints}; refinements: {unmatchedRefinements}. " +
+						"Each geometry must fit entirely on one face without crossing holes. Check its type, or use Clean Geometry to project and split it.");
 
 				if (shapes.Count() == 0)
 				{
@@ -505,8 +313,12 @@ namespace Ant.GrasshopperPlugIn.Components
 			}
 			catch (Exception e)
 			{
-				//SentrySdk.CaptureException(e);
-				MessageBox.Show(e.Message);
+				_errors.Add($"Mesh input preparation failed: {e.Message}");
+			}
+			finally
+			{
+				foreach (var face in faceBreps)
+					face.Dispose();
 			}
 
 			return (shapes, embeddedGeometries, embeddedGeometriesMeshSize);
@@ -553,6 +365,14 @@ namespace Ant.GrasshopperPlugIn.Components
 					Dictionary<GPC.Geometry.GeometryBase, double> embeddedGeometriesMeshSize) =
 					PreProcessMesh(surfaces, constraints, refinements, rhinoEmbedTolerance, calcTolerance, rhinoMatchTolerance, size, ref errors, ref warnings);
 
+				if (errors.Count > 0)
+				{
+					results.Errors = errors;
+					results.Warnings = warnings;
+					results.TotalTime = (DateTime.Now - dtStart).TotalSeconds;
+					return results;
+				}
+
 				bool status = GPC.Geometry.Meshes.GMesh.GMesh.Generate(shapes, embeddedGeometries, embeddedGeometriesMeshSize, generateOptions,
 					out List<GPC.Geometry.Meshes.Mesh> meshes, out GPC.Geometry.Meshes.GMesh.GMesh.GMeshGenerateMeshStatus meshStatus);
 
@@ -562,10 +382,7 @@ namespace Ant.GrasshopperPlugIn.Components
 					results.Value = GHMeshes;
 				}
 
-				string notPrintWarning = "Failed to recover the embedded geometries nodes";
-				for (int j = 0; j < meshStatus.Warnings.Count; j++)
-					if (meshStatus.Warnings[j] != notPrintWarning)
-						warnings.Add(meshStatus.Warnings[j]);
+				warnings.AddRange(meshStatus.Warnings);
 
 				errors.AddRange(meshStatus.CustomErrorMessages.Select(i => i));
 
@@ -642,12 +459,18 @@ namespace Ant.GrasshopperPlugIn.Components
 
 			if (_run || keepRunning)
 			{
+				if (!double.IsFinite(size) || size <= 0 || !double.IsFinite(tolerance) || tolerance <= 0 || tolerance > 100)
+				{
+					AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Size must be positive and finite; tolerance must be between 0 (exclusive) and 100.");
+					return;
+				}
+
 				#region Gestione fattore di scala & Opzioni mesh
 
 				tolerance /= 1000;
 
 				_doc = Rhino.RhinoDoc.ActiveDoc;
-				if (_doc.ModelUnitSystem == Rhino.UnitSystem.Meters)
+				if (_doc?.ModelUnitSystem == Rhino.UnitSystem.Meters)
 				{
 					tolerance /= 1000;
 				}
@@ -732,10 +555,9 @@ namespace Ant.GrasshopperPlugIn.Components
 						}
 					}
 
-					data.SetDataList(0, result.Value);
+					data.SetDataList(0, result.Value ?? new List<GH_Mesh>());
 				}
 
-				_run = false;
 			}
 		}
 

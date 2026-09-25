@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <AntRoot Condition="'$(AntRoot)' == ''">$(MSBuildThisFileDirectory)..\..</AntRoot>
+    <AntOutput>$(AntRoot)\bin\net8.0-windows</AntOutput>
+    <RhinoSystem Condition="'$(RhinoSystem)' == ''">C:\Program Files\Rhino 8\System</RhinoSystem>
+    <GrasshopperSystem>$(RhinoSystem)\..\Plug-ins\Grasshopper</GrasshopperSystem>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Ant.Grasshopper"><HintPath>$(AntOutput)\Ant.Grasshopper.gha</HintPath><Private>false</Private></Reference>
+    <Reference Include="GMesh"><HintPath>$(AntOutput)\GMesh.dll</HintPath></Reference>
+    <Reference Include="GPCGeometry"><HintPath>$(AntOutput)\GPCGeometry.dll</HintPath></Reference>
+    <Reference Include="RhinoCommon"><HintPath>$(RhinoSystem)\netcore\RhinoCommon.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Grasshopper"><HintPath>$(GrasshopperSystem)\Grasshopper.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="GH_IO"><HintPath>$(GrasshopperSystem)\GH_IO.dll</HintPath><Private>false</Private></Reference>
+    <None Include="$(AntOutput)\*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(AntOutput)\Ant.Grasshopper.gha" Link="Ant.Grasshopper.gha" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

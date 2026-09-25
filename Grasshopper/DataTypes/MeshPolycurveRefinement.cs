@@ -1,120 +1,25 @@
-﻿using System;
 using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using Rhino;
 using Rhino.Geometry;
 
 namespace Ant.GrasshopperPlugIn.DataTypes
 {
     public class MeshPolylineCurveRefinement : MeshRefinement<PolylineCurve>, IGH_PreviewData
     {
-        public MeshPolylineCurveRefinement(PolylineCurve polylineCurve, double size)
-            : base(polylineCurve, size) 
+        public MeshPolylineCurveRefinement() : this(null, 1) { }
+        public MeshPolylineCurveRefinement(PolylineCurve curve, double size) : base(curve, size) { }
+        protected override MeshRefinement<PolylineCurve> Create(PolylineCurve geometry, double size) => new MeshPolylineCurveRefinement(geometry, size);
+        public override void DrawViewportWires(GH_PreviewWireArgs args) { if (IsValid) args.Pipeline.DrawCurve(_geometry, args.Color); }
+        protected override PolylineCurve ReadGeometry(GH_IReader reader) => new PolylineCurve(MeshRefinementArchive.ReadPolyline(reader));
+        protected override bool WriteGeometry(GH_IWriter writer) => _geometry.TryGetPolyline(out Polyline poly) && MeshRefinementArchive.WritePolyline(writer, poly);
+        public override bool CastTo<V>(out V target)
         {
-            _boundingBox = new BoundingBox(polylineCurve.GetBoundingBox(true).Min - new Vector3d(size, size, size), polylineCurve.GetBoundingBox(true).Max + new Vector3d(size, size, size));            
-        }
-        
-
-        public override void DrawViewportWires(GH_PreviewWireArgs args)
-        {
-            if (_geometry.TryGetPolyline(out Polyline poly))     
-                args.Pipeline.DrawPolyline(poly, args.Color);
-        }
-
-
-        public override IGH_Goo Duplicate()
-        {
-            if (_geometry.TryGetPolyline(out Polyline poly))
-                return new MeshPolylineRefinement(poly, _size);
-            else
-                throw new Exception();
-        }
-
-        public override bool Read(GH_IReader reader)
-        {
-            try
-            {
-                if (_geometry.TryGetPolyline(out Polyline poly))
-                {
-                    Point3d[] pointsArray = new Point3d[poly.SegmentCount];
-                    for (int i = 0; i < poly.SegmentCount; i++)
-                    {
-                        GH_IO.Types.GH_Point3D pt = reader.GetPoint3D("Point");
-                        Point3d ptRhino = new Point3d(pt.x, pt.y, pt.z);
-                        pointsArray[i] = ptRhino;
-                    }
-
-                    Polyline polyline = new Polyline(pointsArray);
-                    PolylineCurve polyCurve = new PolylineCurve(pointsArray);
-
-                    _geometry = polyCurve;
-                    _size = reader.GetDouble("Size");
-                    _referenceID = reader.GetGuid("ReferenceID");
-
-                    return true;
-                }
-            }
-            catch (Exception e)
-            {
-                System.Diagnostics.Debug.WriteLine("MeshRefinement.Read: {0}", e.Message);
-                return false;
-            }
-            return false;
-        }
-
-        public override bool Write(GH_IWriter writer)
-        {
-            try
-            {
-                for(int i = 0; i< Geometry.PointCount; i++)
-                {
-                    Point3d point = Geometry.Point(i);
-                    writer.SetPoint3D("Point", new GH_IO.Types.GH_Point3D(point.X, point.Y, point.Z));
-                }
-                writer.SetDouble("Size", _size);
-                writer.SetGuid("ReferenceID", _referenceID);
-                return true;
-            }
-            catch (Exception e)
-            {
-                System.Diagnostics.Debug.WriteLine("MeshRefinement.Write: {0}", e.Message);
-                return false;
-            }
-        }
-
-        public override bool CastTo<T>(out T target)
-        {
-            target = default(T);
-            Point3d[] pointsArray = new Point3d[Geometry.PointCount];
-            bool check = true;
-            try
-            {
-                if (IsValid)
-                {
-                    for (int i = 0; i < Geometry.PointCount; i++)
-                    {
-                        if (typeof(T).IsAssignableFrom(typeof(GH_Point)))
-                        {
-                            pointsArray[i] = Geometry.Point(i);                            
-                        }
-                        else
-                        {
-                            check = false;
-                        }
-                    }
-                    if (check)
-                    {
-                        target = (T)Convert.ChangeType(pointsArray, typeof(T));
-                        return true;
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                System.Diagnostics.Debug.WriteLine(e.Message);
-            }
-            return false;
+            target = default;
+            if (!IsValid) return false;
+            if (typeof(V).IsAssignableFrom(typeof(GH_Curve))) return Cast(new GH_Curve(_geometry.DuplicateCurve()), out target);
+            if (typeof(V).IsAssignableFrom(typeof(PolylineCurve))) return Cast(_geometry.DuplicateCurve(), out target);
+            return typeof(V).IsAssignableFrom(typeof(Polyline)) && _geometry.TryGetPolyline(out Polyline poly) && Cast(poly, out target);
         }
     }
 }

@@ -1,154 +1,50 @@
 using System;
-using Grasshopper.Kernel;
-using Rhino.Geometry;
-using Ant.GrasshopperPlugIn.DataTypes;
-using Grasshopper.Kernel.Types;
-using System.Collections.Generic;
 using System.Linq;
+using Ant.GrasshopperPlugIn.DataTypes;
+using Ant.GrasshopperPlugIn.Helpers;
+using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
+using Rhino.Geometry;
 
 namespace Ant.GrasshopperPlugIn.Components
 {
     public class MeshRefinementComponent : GH_Component
     {
-        /// <summary>
-        /// Initializes a new instance of the MeshRefinementComponent class.
-        /// </summary>
-        public MeshRefinementComponent()
-          : base("Mesh Refinement", "MR", "Define a refinement", "Ant", "Mesh")
+        public MeshRefinementComponent() : base("Mesh Refinement", "MR", "Attach a local mesh size to points, curves or planar regions.", "Ant", "Mesh") { }
+        protected override void RegisterInputParams(GH_InputParamManager p)
         {
+            p.AddGeometryParameter("Geometry", "G", "Point, curve or planar region to refine.", GH_ParamAccess.item);
+            p.AddNumberParameter("Size", "S", "Positive local mesh size.", GH_ParamAccess.item);
         }
-
-        /// <summary>
-        /// Registers all the input parameters for this component.
-        /// </summary>
-        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        protected override void RegisterOutputParams(GH_OutputParamManager p) => p.AddGenericParameter("Refinement", "MR", "Connect to Clean Geometry R or Planar Mesh R.", GH_ParamAccess.list);
+        protected override void SolveInstance(IGH_DataAccess data)
         {
-            pManager.AddGeometryParameter("Geometry", "G", "The geometry to which to attach the data", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Size", "S", "The size of the mesh", GH_ParamAccess.item);
-        }
-
-        /// <summary>
-        /// Registers all the output parameters for this component.
-        /// </summary>
-        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
-        {
-            pManager.AddGenericParameter("Refinement", "MR", "The mesh refinement to give to the mesh component", GH_ParamAccess.list);
-        }
-
-        /// <summary>
-        /// This is the method that actually does the work.
-        /// </summary>
-        /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
-        protected override void SolveInstance(IGH_DataAccess DA)
-        {
-            //Point3d point = Point3d.Unset;
-            //if (!DA.GetData(0, ref point))
-            //    return;
-            IGH_GeometricGoo geometry = null;
-            if (!DA.GetData(0, ref geometry))
-                return;
-            double size = 0;
-            if (!DA.GetData(1, ref size))
-                return;
-
-            if (geometry is GH_Point point)
+            IGH_GeometricGoo geometry = null; double size = 0;
+            if (!data.GetData(0, ref geometry) || !data.GetData(1, ref size)) return;
+            if (!double.IsFinite(size) || size <= 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Size must be finite and greater than zero."); return; }
+            try
             {
-                DA.SetDataList(0, new List<MeshPointRefinement>() { new MeshPointRefinement(point.Value, size) });
-                return;
-            }
-            else if (geometry is LineCurve line)
-            {
-                DA.SetDataList(0, new List<MeshLineRefinement>() { new MeshLineRefinement(line.Line, size) });
-                return;
-            }
-            else if (geometry is GH_Curve curve)
-            {
-                if (curve.Value.TryGetPolyline(out Polyline polycurvegh))
+                switch (geometry)
                 {
-                    List<MeshLineRefinement> list = (polycurvegh.GetSegments().Select(linegh => new MeshLineRefinement(linegh, size))).ToList();
-                    DA.SetDataList(0, list);
-                    return;
+                    case GH_Point point: data.SetDataList(0, new[] { new MeshPointRefinement(point.Value, size) }); return;
+                    case GH_Line line: data.SetDataList(0, new[] { new MeshLineRefinement(line.Value, size) }); return;
+                    case GH_Curve curve:
+                        var poly = PlanarGeometryCleanup.Approximate(curve.Value, size / 1000);
+                        data.SetDataList(0, poly.GetSegments().Select(l => new MeshLineRefinement(l, size))); return;
+                    case GH_Surface surface: SetRegion(surface.Value); return;
+                    case GH_Brep brep: SetRegion(brep.Value); return;
+                    default: throw new ArgumentException("Geometry not supported. Use points, curves or planar surfaces.");
                 }
-                else
+                void SetRegion(Brep region)
                 {
-                    var pppl = MeshComponent.ToPolylineCurve(curve.Value, size / 1000, size);
-                    if (pppl != null)
-                    {
-                        List<MeshLineRefinement> list = (pppl.ToPolyline().GetSegments().Select(linegh => new MeshLineRefinement(linegh, size))).ToList();
-                        DA.SetDataList(0, list);
-                        return;
-                    }
+                    if (region == null || !region.IsValid || region.Faces.Any(f => !f.IsPlanar(1E-4))) throw new ArgumentException("Refinement surfaces must be valid and planar.");
+                    data.SetDataList(0, new[] { new MeshSurfaceRefinement(region.DuplicateBrep(), size) });
                 }
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Fail to convert planar curve to polyline");
-
             }
-            else if (geometry is LineCurve gh_line)
-            {
-                DA.SetDataList(0, new List<MeshLineRefinement>() { new MeshLineRefinement(gh_line.Line, size) });
-                return;
-            }
-            else if (geometry is Polyline polyline)
-            {
-                List<MeshLineRefinement> list = new List<MeshLineRefinement>();
-                Line[] listOfLine = polyline.GetSegments();
-                list.AddRange(listOfLine.Select(l => new MeshLineRefinement(l, size)));
-                DA.SetDataList(0, list);
-                return;
-            }
-            else if (geometry is PolyCurve polycurve)
-            {
-				List<MeshLineRefinement> list = new List<MeshLineRefinement>();
-				polycurve.TryGetPolyline(out Polyline polylineOut);
-				list.AddRange(polylineOut.GetSegments().Select(l => new MeshLineRefinement(l, size)));
-				DA.SetDataList(0, list);
-				return;
-			}
-            else if (geometry is PolylineCurve polylinecurve)
-            {
-				List<MeshLineRefinement> list = new List<MeshLineRefinement>();
-				polylinecurve.TryGetPolyline(out Polyline polylineOut);
-				list.AddRange(polylineOut.GetSegments().Select(l => new MeshLineRefinement(l, size)));
-				DA.SetDataList(0, list);
-				return;
-			}
-            /*else if (geometry is Brep surface)
-            {
-                Curve cv = surface.Loops[0].To3dCurve();
-                cv.TryGetPolyline(out Polyline pline, out double[] parameters);
-
-                DA.SetData(0, new MeshPolylineRefinement(pline, size));
-                return;
-            }*/
-            else if (geometry is GH_Brep brep)
-            {
-                Curve cv = brep.Value.Loops[0].To3dCurve();
-                cv.TryGetPolyline(out Polyline pline, out double[] parameters);
-
-                DA.SetDataList(0, new List<MeshPolylineRefinement>() { new MeshPolylineRefinement(pline, size) });
-                return;
-            }
-            else if (geometry is GH_Surface surface)
-            {
-                DA.SetDataList(0, new List<MeshSurfaceRefinement>() { new MeshSurfaceRefinement(surface.Value, size) });
-                return;
-            }
-
-            //DA.SetData(0, new MeshRefinement(point, size));
-            // Errore
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Geometry not supported");
+            catch (Exception e) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, e.Message); }
         }
-
-        /// <summary>
-        /// Provides an Icon for the component.
-        /// </summary>
         protected override System.Drawing.Bitmap Icon => Properties.Resources.MeshRefinementIcon;
-
-        /// <summary>
-        /// Gets the unique ID for this component. Do not change this ID after release.
-        /// </summary>
         public override Guid ComponentGuid => new Guid("8de166c1-85c1-4026-8d3f-0a3c6da70bd3");
-
-
         public override GH_Exposure Exposure => GH_Exposure.secondary;
     }
 }

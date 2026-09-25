@@ -3,9 +3,14 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <OutputType>Library</OutputType>
     <IsWebBootstrapper>false</IsWebBootstrapper>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Version>1.0.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <UseWindowsForms>true</UseWindowsForms>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
+	  <PlatformTarget>x64</PlatformTarget>
+	  <GmshNetRoot>$(MSBuildThisFileDirectory)..\..\Gmsh.Net</GmshNetRoot>
 	  <TargetExt>.gha</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
@@ -26,18 +31,13 @@
       <HintPath>..\..\Geometry\GMesh\bin\Release\GMesh.dll</HintPath>
     </Reference>
     <Reference Include="GMsh.Net">
-      <HintPath>..\..\Geometry\GMesh\bin\Release\GMsh.Net.dll</HintPath>
+      <HintPath>$(GmshNetRoot)\src\GMsh.Net\bin\Release\netstandard2.0\GMsh.Net.dll</HintPath>
     </Reference>
     <Reference Include="GPCGeometry">
-      <HintPath>..\..\Geometry\GMesh\bin\Release\GPCGeometry.dll</HintPath>
+      <HintPath>..\..\Geometry\GPCGeometry\bin\Release\netstandard2.0\GPCGeometry.dll</HintPath>
     </Reference>
     <Reference Include="GPCUtilities">
       <HintPath>..\..\Utilities\GPCUtilities\bin\Release\netstandard2.0\GPCUtilities.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Net" />
-    <Reference Include="System.Text.Json, Version=7.0.0.3, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL" />
-    <Reference Include="UnsafeEx">
-      <HintPath>..\bin\UnsafeEx.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -113,11 +113,12 @@
     <Content Include="Resources\CleanGeometryIcon.png" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Grasshopper" Version="8.19.25132.1001" />
+    <PackageReference Include="Grasshopper" Version="8.19.25132.1001" ExcludeAssets="runtime" />
+    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
     <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="9.0.5" />
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="RhinoCommon" Version="8.19.25132.1001" />
+    <PackageReference Include="RhinoCommon" Version="8.19.25132.1001" ExcludeAssets="runtime" />
     <PackageReference Include="System.Buffers" Version="4.6.1" />
     <PackageReference Include="System.Collections.Immutable" Version="9.0.5" />
     <PackageReference Include="System.Memory" Version="4.6.3" />
@@ -128,7 +129,6 @@
     <PackageReference Include="System.Text.Encodings.Web" Version="9.0.5" />
     <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.6.3" />
     <PackageReference Include="System.ValueTuple" Version="4.6.1" />
-    <PackageReference Include="UnsafeEx" Version="1.0.0" />
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="_obj\Debug\.NETFramework,Version=v4.7.2.AssemblyAttributes.cs" />
@@ -136,7 +136,14 @@
     <Compile Remove="_obj\Release\.NETFramework,Version=v4.7.2.AssemblyAttributes.cs" />
     <Compile Remove="_obj\Release\Sentry.Attributes.cs" />
   </ItemGroup>
-  <PropertyGroup />
+  <!-- Read the native version from the binding project, so managed/native updates stay paired. -->
+  <Target Name="CopyGmshNative" AfterTargets="Build">
+    <XmlPeek XmlInputPath="$(GmshNetRoot)\src\GMsh.Net\GMsh.Net.csproj" Query="/Project/PropertyGroup/GmshNativeVersion/text()">
+      <Output TaskParameter="Result" PropertyName="GmshNativeVersion" />
+    </XmlPeek>
+    <Error Condition="'$(GmshNativeVersion)' == ''" Text="GmshNativeVersion is missing from GMsh.Net.csproj." />
+    <Copy SourceFiles="$(GmshNetRoot)\dll\windows\gmsh-$(GmshNativeVersion).dll" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+  </Target>
   <PropertyGroup>
     <FallbackCulture>en-US</FallbackCulture>
   </PropertyGroup>
