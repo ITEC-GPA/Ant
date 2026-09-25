@@ -1,0 +1,149 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>Library</OutputType>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
+	  <TargetExt>.gha</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
+    <OutputPath>..\bin\</OutputPath>
+    <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>..\bin\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Views\**" />
+    <EmbeddedResource Remove="Views\**" />
+    <None Remove="Views\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="GMesh">
+      <HintPath>..\..\Geometry\GMesh\bin\Release\GMesh.dll</HintPath>
+    </Reference>
+    <Reference Include="GMsh.Net">
+      <HintPath>..\..\Geometry\GMesh\bin\Release\GMsh.Net.dll</HintPath>
+    </Reference>
+    <Reference Include="GPCGeometry">
+      <HintPath>..\..\Geometry\GMesh\bin\Release\GPCGeometry.dll</HintPath>
+    </Reference>
+    <Reference Include="GPCUtilities">
+      <HintPath>..\..\Utilities\GPCUtilities\bin\Release\netstandard2.0\GPCUtilities.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Net" />
+    <Reference Include="System.Text.Json, Version=7.0.0.3, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL" />
+    <Reference Include="UnsafeEx">
+      <HintPath>..\bin\UnsafeEx.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\ReferenceObjectsIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\SetUserDataIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\GetUserDataIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\UpdateGeometryUserDataIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\GetPropertiesIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\FilterUserDataIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\FilterPropertiesIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\GridDisposeIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\BakeUserDataIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\StopIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\SwitchIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\RecomputeIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\SetGenePoolIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\IfIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\AutoOrientIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\AddUserDataIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\GetUserValuesIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\GetParamDataIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\JoinOffsetCurvesIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\SubStringIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\GetDocPathIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\MeshIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\MeshRefinementIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Resources\CleanGeometryIcon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Grasshopper" Version="8.19.25132.1001" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="9.0.5" />
+    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="RhinoCommon" Version="8.19.25132.1001" />
+    <PackageReference Include="System.Buffers" Version="4.6.1" />
+    <PackageReference Include="System.Collections.Immutable" Version="9.0.5" />
+    <PackageReference Include="System.Memory" Version="4.6.3" />
+    <PackageReference Include="System.Numerics.Vectors" Version="4.6.1" />
+    <PackageReference Include="System.Reflection.Metadata" Version="9.0.5" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.1.2" />
+    <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" />
+    <PackageReference Include="System.Text.Encodings.Web" Version="9.0.5" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.6.3" />
+    <PackageReference Include="System.ValueTuple" Version="4.6.1" />
+    <PackageReference Include="UnsafeEx" Version="1.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="_obj\Debug\.NETFramework,Version=v4.7.2.AssemblyAttributes.cs" />
+    <Compile Remove="_obj\Debug\Sentry.Attributes.cs" />
+    <Compile Remove="_obj\Release\.NETFramework,Version=v4.7.2.AssemblyAttributes.cs" />
+    <Compile Remove="_obj\Release\Sentry.Attributes.cs" />
+  </ItemGroup>
+  <PropertyGroup />
+  <PropertyGroup>
+    <FallbackCulture>en-US</FallbackCulture>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
+    <StartProgram>C:\Program Files\Rhino 8\System\Rhino.exe</StartProgram>
+    <StartArguments>
+    </StartArguments>
+    <StartAction>Program</StartAction>
+  </PropertyGroup>
+</Project>
