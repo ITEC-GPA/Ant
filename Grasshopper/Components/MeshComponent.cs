@@ -5,10 +5,12 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
 using GPC.Utilities.Extensions;
+using GH_IO.Serialization;
 using Rhino.Geometry;
 //using Sentry;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -23,6 +25,9 @@ namespace Ant.GrasshopperPlugIn.Components
 			public List<string> Warnings { get; set; }
 			public List<Exception> Exceptions { get; set; }
 			public double TotalTime { get; set; }
+			public double PreparationTime { get; set; }
+			public double GenerationTime { get; set; }
+			public double ConversionTime { get; set; }
 		}
 
 		protected bool _run;
@@ -31,7 +36,21 @@ namespace Ant.GrasshopperPlugIn.Components
 		public MeshComponent()
 			: base("Planar Mesh", "PM", "Create mesh from planar surfaces", "Ant", "Mesh")
 		{
+			// GMesh serializes native generation globally; task mode remains opt-in in GH.
+			UseTasks = false;
+		}
 
+		public override bool Write(GH_IWriter writer)
+		{
+			writer.SetBoolean("Ant.UseTasks", UseTasks);
+			return base.Write(writer);
+		}
+
+		public override bool Read(GH_IReader reader)
+		{
+			bool read = base.Read(reader);
+			if (reader.ItemExists("Ant.UseTasks")) UseTasks = reader.GetBoolean("Ant.UseTasks");
+			return read;
 		}
 
 		public override void CreateAttributes()
@@ -89,6 +108,7 @@ namespace Ant.GrasshopperPlugIn.Components
 		protected override void RegisterOutputParams(GH_OutputParamManager pManager)
 		{
 			pManager.AddMeshParameter("Mesh", "M", "The resulting mesh", GH_ParamAccess.list);
+			pManager.AddTextParameter("Report", "I", "Preparation, Gmsh generation (including queue wait), conversion and total timings in seconds.", GH_ParamAccess.item);
 		}
 
 		protected override void AfterSolveInstance()
@@ -110,6 +130,12 @@ namespace Ant.GrasshopperPlugIn.Components
 			Dictionary<GPC.Geometry.GeometryBase, double> embeddedGeometriesMeshSize = new Dictionary<GPC.Geometry.GeometryBase, double>();
 
 			var faceBreps = new List<Brep>();
+			constraints ??= new List<IGH_GeometricGoo>();
+			refinements ??= new List<IGH_GeometricGoo>();
+			using var constraintIndex = new BoundsIndex();
+			using var refinementIndex = new BoundsIndex();
+			for (int i = 0; i < constraints.Count; i++) if (constraints[i] != null) constraintIndex.Add(constraints[i].Boundingbox, i);
+			for (int i = 0; i < refinements.Count; i++) if (refinements[i] != null) refinementIndex.Add(refinements[i].Boundingbox, i);
 			try
 			{
 				MeshInputGeometry.SplitFaces(surfaces, faceBreps);
@@ -213,7 +239,7 @@ namespace Ant.GrasshopperPlugIn.Components
 
 						if (constraints != null)
 						{
-							for (int ct = 0; ct < constraints.Count; ct++)
+							foreach (int ct in constraintIndex.Search(surfaces[b].GetBoundingBox(true), rhinoEmbedTolerance))
 							{
 								if (constraints[ct] == null)
 									continue;
@@ -270,8 +296,9 @@ namespace Ant.GrasshopperPlugIn.Components
 
 						#region Refinement
 
-                        foreach (var refinement in refinements ?? new List<IGH_GeometricGoo>())
+                        foreach (int refinementId in refinementIndex.Search(surfaces[b].GetBoundingBox(true), rhinoEmbedTolerance))
                         {
+                            var refinement = refinements[refinementId];
                             if (refinement == null || hashSet.Contains(refinement)) continue;
                             if (!MeshInputGeometry.TryProjectRefinement(surfaces[b], refinement, rhinoEmbedTolerance,
                                 calcTolerance, size, out var projected, out double localSize)) continue;
@@ -326,26 +353,20 @@ namespace Ant.GrasshopperPlugIn.Components
 
 		protected List<GH_Mesh> PostProcessMesh(List<GPC.Geometry.Meshes.Mesh> meshes, ref List<string> _errors)
 		{
+			var converted = new List<GH_Mesh>(meshes.Count);
 			try
 			{
-				Task<Mesh>[] tasks = new Task<Mesh>[meshes.Count];
-
-				for (int m = 0; m < meshes.Count; m++)
-				{
-					var mesh = meshes[m];
-					tasks[m] = Task.Run(() => mesh.ConvertToRhinoMesh());
-				}
-
-				Task.WaitAll(tasks);
-
-				return tasks.Select(i => new GH_Mesh(i.Result)).ToList();
+				// Avoid a second layer of blocking tasks for a linear vertex/face conversion.
+				foreach (var mesh in meshes) converted.Add(new GH_Mesh(mesh.ConvertToRhinoMesh()));
+				return converted;
 			}
 			catch (Exception e)
 			{
 				_errors.Add(e.Message);
 				//SentrySdk.CaptureException(e);
 
-				return null;
+				foreach (var mesh in converted) mesh.Value?.Dispose();
+				return new List<GH_Mesh>();
 			}
 		}
 
@@ -354,7 +375,7 @@ namespace Ant.GrasshopperPlugIn.Components
 		{
 			try
 			{
-				DateTime dtStart = DateTime.Now;
+				var clock = Stopwatch.StartNew();
 
 				SolveResults results = new SolveResults();
 
@@ -364,17 +385,19 @@ namespace Ant.GrasshopperPlugIn.Components
 				(List<GPC.Geometry.Shape> shapes, Dictionary<GPC.Geometry.Shape, GPC.Geometry.GeometryBase[]> embeddedGeometries,
 					Dictionary<GPC.Geometry.GeometryBase, double> embeddedGeometriesMeshSize) =
 					PreProcessMesh(surfaces, constraints, refinements, rhinoEmbedTolerance, calcTolerance, rhinoMatchTolerance, size, ref errors, ref warnings);
+				results.PreparationTime = clock.Elapsed.TotalSeconds;
 
 				if (errors.Count > 0)
 				{
 					results.Errors = errors;
 					results.Warnings = warnings;
-					results.TotalTime = (DateTime.Now - dtStart).TotalSeconds;
+					results.TotalTime = clock.Elapsed.TotalSeconds;
 					return results;
 				}
 
 				bool status = GPC.Geometry.Meshes.GMesh.GMesh.Generate(shapes, embeddedGeometries, embeddedGeometriesMeshSize, generateOptions,
 					out List<GPC.Geometry.Meshes.Mesh> meshes, out GPC.Geometry.Meshes.GMesh.GMesh.GMeshGenerateMeshStatus meshStatus);
+				results.GenerationTime = clock.Elapsed.TotalSeconds - results.PreparationTime;
 
 				if (status)
 				{
@@ -389,7 +412,8 @@ namespace Ant.GrasshopperPlugIn.Components
 				results.Errors = errors;
 				results.Warnings = warnings;
 				results.Exceptions = meshStatus.Exceptions;
-				results.TotalTime = (DateTime.Now - dtStart).TotalSeconds;
+				results.TotalTime = clock.Elapsed.TotalSeconds;
+				results.ConversionTime = results.TotalTime - results.PreparationTime - results.GenerationTime;
 
 				return results;
 			}
@@ -556,6 +580,7 @@ namespace Ant.GrasshopperPlugIn.Components
 					}
 
 					data.SetDataList(0, result.Value ?? new List<GH_Mesh>());
+					data.SetData(1, FormattableString.Invariant($"Preparation: {result.PreparationTime:F4} s; Gmsh including wait: {result.GenerationTime:F4} s; conversion: {result.ConversionTime:F4} s; total: {result.TotalTime:F4} s. GH tasks: {UseTasks}. Native generation is serialized."));
 				}
 
 			}

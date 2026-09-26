@@ -67,6 +67,14 @@ public sealed class AntIcon : IDisposable
         case "MeshIcon": Grid(); Path(Teal,false,3,3,12,12,21,3); Path(Teal,false,3,21,12,12,21,21); C(12,12,1.8f,Gold,true); break;
         case "MeshRefinementIcon": Grid(); Path(Teal,false,12,3,21,12); Path(Teal,false,12,7.5f,21,7.5f); Path(Teal,false,16.5f,3,16.5f,12); C(16.5f,7.5f,1.8f,Gold,true); break;
         case "CleanMergeMeshIcon": Box(3,7,13,13,Ink); Path(Teal,false,3,7,16,20,3,20,16,7); Plus(18,5,Gold); break;
+        case "MeshQualityIcon": Grid(); C(16,16,5,Gold); Path(Teal,false,13,16,15,18,19,13); break;
+        case "MeshTopologyIcon": Path(Ink,false,4,4,20,4,20,20,4,20,4,4,20,20); C(4,4,2,Teal,true); C(20,4,2,Teal,true); C(20,20,2,Teal,true); C(4,20,2,Gold,true); break;
+        case "MeshPartsIcon": Path(Teal,false,2,4,10,4,10,12,2,4); Path(Ink,false,14,12,22,20,14,20,14,12); Arrow(10,15,-6,5,Gold); Arrow(14,9,6,-5,Gold); break;
+        case "MeshExtractFacesIcon": Grid(); Path(Teal,true,12,3,21,3,21,12); Arrow(15,9,6,-6,Gold); break;
+        case "MeshNormalsIcon": Path(Ink,false,3,16,12,11,21,16,12,21,3,16); Arrow(12,16,0,-13,Teal); break;
+        case "MeshTriangulateIcon": Box(3,3,18,18,Ink); Path(Teal,false,3,3,21,21); C(3,3,2,Gold,true); C(21,21,2,Gold,true); break;
+        case "MeshMatchNodesIcon": Grid(); C(12,12,2,Teal,true); C(19,5,2,Gold); Arrow(18,6,-5,5,Gold); break;
+        case "MeshMatchFacesIcon": Path(Ink,false,3,6,20,6,20,21,3,6); C(10,13,2,Teal,true); C(10,3,2,Gold); Arrow(10,5,0,6,Gold); break;
         case "CleanGeometryIcon": Path(Ink,false,3,19,6,8,16,5,20,17,3,19); C(3,19,1.7f,Teal,true); C(6,8,1.7f,Teal,true); C(20,17,1.7f,Teal,true); Plus(18,5,Gold); break;
         case "IfIcon": Path(Ink,false,3,12,9,12,15,6,20,6); Path(Teal,false,9,12,15,18,20,18); C(9,12,1.8f,Gold,true); Path(Teal,false,17,3,19,5,21,2.8f); break;
         case "SwitchIcon": C(4,12,1.8f,Ink); C(20,5,1.8f,Ink); C(20,19,1.8f,Teal); Path(Teal,false,7,12,17,18); Path(Ink,false,13,6,16,5); break;
@@ -87,7 +95,9 @@ public sealed class AntIcon : IDisposable
         string resources=System.IO.Path.Combine(root,"Grasshopper","Resources");
         Directory.CreateDirectory(System.IO.Path.Combine(resources,"Vector"));
         string[] names={"PlugInIcon","PlugInTabIcon","MeshIcon","MeshRefinementIcon","CleanMergeMeshIcon","CleanGeometryIcon","AutoOrientIcon","AddUserDataIcon","SetUserDataIcon","GetUserDataIcon","GetUserValuesIcon","UpdateGeometryUserDataIcon","BakeUserDataIcon","GetPropertiesIcon","FilterPropertiesIcon","FilterUserDataIcon","GetDocPathIcon","GetParamDataIcon","ReferenceObjectsIcon","GridDisposeIcon","JoinOffsetCurvesIcon","IfIcon","SwitchIcon","StopIcon","RecomputeIcon","PersistentCounterIcon","SetGenePoolIcon","SubStringIcon"};
-        using(var sheet=new Bitmap(1000,600)) using(var sg=Graphics.FromImage(sheet)) using(var font=new Font("Segoe UI",9)) using(var small=new Font("Segoe UI",8))
+        string[] extra={"MeshQualityIcon","MeshTopologyIcon","MeshPartsIcon","MeshExtractFacesIcon","MeshNormalsIcon","MeshTriangulateIcon","MeshMatchNodesIcon","MeshMatchFacesIcon"};
+        int originalCount=names.Length; Array.Resize(ref names,originalCount+extra.Length); Array.Copy(extra,0,names,originalCount,extra.Length);
+        using(var sheet=new Bitmap(1000,((names.Length+4)/5)*100)) using(var sg=Graphics.FromImage(sheet)) using(var font=new Font("Segoe UI",9)) using(var small=new Font("Segoe UI",8))
         {
             sg.Clear(Color.FromArgb(246,248,250));
             for(int i=0;i<names.Length;i++)
@@ -110,4 +120,4 @@ public sealed class AntIcon : IDisposable
 }
 '@
 [AntIcon]::Generate($ProjectRoot)
-Write-Output 'Generated 28 transparent 24x24 PNG icons, editable SVG sources and preview sheet.'
+Write-Output 'Generated 36 transparent 24x24 PNG icons, editable SVG sources and preview sheet.'

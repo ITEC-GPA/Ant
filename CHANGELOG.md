@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.0 - 2026-09-26
+
+- Added Mesh Quality, Mesh Topology, Mesh Parts, Extract Mesh Faces, Match Mesh
+  Nodes, Match Mesh Faces, Orient Mesh Normals and Triangulate Mesh, with eight
+  new transparent 24x24 icons and source-index maps where topology changes.
+- Added RTree filtering to geometry cleanup and Planar Mesh input matching;
+  retained exact geometry tests, tolerance semantics and deterministic candidate order.
+- Reduced mesh cleanup diagnostic allocations and repeated full-mesh validation.
+- Default new Planar Mesh instances to single-threaded GH solving, persist the
+  task preference, append stage timings and remove nested conversion tasks.
+- Map GMesh vertex IDs directly during conversion and preserve double precision.
+- Correct the compiled resource namespace so all plugin icons can be loaded.
+- Expanded regression checks from 61 to 79, including all components, resources,
+  serialization, matching against exhaustive search and vertex attributes.
+- On the documented 36-panel/216-line cleanup benchmark, median time fell from
+  97.61 ms to 11.92 ms and managed allocations from 20,198,104 to 2,421,080 bytes.
+  Performance depends on the input; this does not measure total native memory.
+
 ## 1.0.0 - 2026-09-25
 
 First explicitly versioned release for Rhino 8 on Windows x64 / .NET 8.

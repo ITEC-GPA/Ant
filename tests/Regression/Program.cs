@@ -48,6 +48,7 @@ static class Program
     static int Run()
     {
         using var core = new Rhino.Runtime.InProcess.RhinoCore(new[] { "/NOSPLASH", "/NOTEMPLATE" }, Rhino.Runtime.InProcess.WindowStyle.NoWindow);
+        if (Environment.GetEnvironmentVariable("ANT_CLEANUP_BENCHMARK") == "1") return CleanupBenchmark.Run();
         Check("multiface Brep preserves both faces and their holes", () =>
         {
             using var first = Rectangle(0);
@@ -101,6 +102,7 @@ static class Program
         PlanarGeometryCleanupChecks.Run(Check);
         RefinementChecks.Run(Check);
         CleanupDiagnosticChecks.Run(Check);
+        MeshToolsChecks.Run(Check);
         Console.WriteLine($"{passed} regression checks passed.");
         return 0;
     }

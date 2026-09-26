@@ -2,7 +2,8 @@
 
 Grasshopper tools for Rhino 8 on Windows x64 / .NET 8.
 
-Current release: **1.0.0**. See [CHANGELOG.md](CHANGELOG.md) for release notes.
+Current release: **1.1.0**; Git tag: **v1.1.0**.
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 The plugin version is defined in `Grasshopper/Ant.Grasshopper.csproj` and is
 included in the compiled assembly and Grasshopper plugin information.
 
@@ -39,12 +40,14 @@ generation and multiple Grasshopper branches with tasks enabled and disabled.
 It also verifies refinement copies, transformations, validity and XML/binary
 archive round-trips, including internalized data in a Grasshopper generic
 parameter. Its isolated component server registers Ant without loading other
-user-installed plugins. The complete suite currently contains 61 checks,
-including cleanup diagnostics and loading components saved with their original ports.
+user-installed plugins. The complete suite currently contains 79 checks,
+including cleanup diagnostics, all eight mesh tools, indexed matching against
+exhaustive search, source-index maps, vertex attributes, double precision,
+embedded icons and loading components saved with their original ports.
 
 ## Icons
 
-All 28 PNG resources are 24x24 pixels with transparent backgrounds, following
+All 36 PNG resources are 24x24 pixels with transparent backgrounds, following
 the [Grasshopper icon guidelines](https://developer.rhino3d.com/guides/grasshopper/grasshopper-icons/).
 Editable SVGs are in `Grasshopper/Resources/Vector`; the reproducible drawing
 source is `tools/Generate-Icons.ps1`. Regenerate with Windows PowerShell:
@@ -56,6 +59,59 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Generate-Icons.ps1
 `tools/icons-preview.png` shows the icons at native size and enlarged.
 
 ## Mesh input behavior
+
+### Execution and timings
+
+New Planar Mesh components default to **single-threaded GH solving**. The GH
+task option remains available and is saved with the component. Existing files
+without a saved task preference use the new default. The appended **I** output
+reports preparation, Gmsh generation (including any wait), conversion and total
+wall-clock timings. Original mesh output position and component GUID are unchanged.
+
+The current GMesh library serializes native generation with a process-wide lock.
+Several GH tasks can overlap preprocessing, but cannot run separate Gmsh models
+concurrently in the same process. The conversion no longer creates a nested task
+for every output mesh; source vertex IDs are mapped directly, with double precision.
+
+Gmsh's own internal parallelism is a separate setting: its 1D/2D algorithms can
+mesh multiple curves/surfaces concurrently. See the
+[Gmsh parallel meshing documentation](https://gmsh.info/doc/texinfo/#Mesh-module).
+Ant does not currently expose or override those native thread options. Independent
+worker processes would be appropriate for large independent jobs, but require a
+separate worker protocol and are not implemented here. Use the I timings on your
+actual model before choosing GH task mode; it is not automatically faster.
+
+### Spatial searches and measured performance
+
+RTree broad-phase searches now cover boundary snapping, boundary T-junctions,
+host-face candidates, constraint carriers/representatives, point-on-line queries,
+constraint deduplication and Planar Mesh input assignment. Exact geometry checks
+still decide whether a candidate is valid. Candidate IDs retain insertion order
+where it affects snapping. Clean and Merge Mesh already used an RTree for nearby
+vertices and now reduces diagnostic allocations with typed face signatures and
+lightweight vertex/normal bookkeeping.
+
+A local comparison on 2026-09-26 used the same Rhino test runner, 36 separated
+panels and 216 projected lines, with one warm-up and the median of three runs:
+
+| Clean Geometry | Time | Managed allocations on the calling thread |
+| --- | ---: | ---: |
+| Published 1.0.0 | 97.61 ms | 20,198,104 bytes |
+| Indexed implementation | 11.92 ms | 2,421,080 bytes |
+
+This example is approximately 8.2x faster with 88% fewer managed allocations;
+it is not a speed guarantee for other geometries or total native memory usage.
+Both runs returned 36 surfaces and 216 lines. Regression checks cover holes,
+clipping, duplicate constraints and projections. To run this benchmark after
+building the regression runner:
+
+```powershell
+$env:ANT_CLEANUP_BENCHMARK = '1'
+try { dotnet run --project .\tests\Regression\Ant.Regression.csproj -c Release --no-build }
+finally { Remove-Item Env:ANT_CLEANUP_BENCHMARK }
+```
+
+### Input preparation
 
 Each planar Brep face produces its own shape and retains its inner loops.
 An embedded curve must fit entirely on one face without crossing a hole or
@@ -86,6 +142,52 @@ unindexed `Point` key and could not save a complete polyline. Such already
 incomplete data cannot be reconstructed: loading reports an archive error with
 instructions to recreate the refinement from its original curve. New archives
 and the earlier point/line/region formats load normally.
+
+## Mesh management tools
+
+The following components are available under **Ant > Mesh**. Inputs are not
+modified. All indices are zero-based and refer to the input mesh/list in the
+current Grasshopper branch. Use one mesh per branch (Graft M) when correlating
+per-mesh lists. Tree maps append the solve iteration and then the face, edge or
+part index to the input branch, so multiple input meshes cannot overwrite maps.
+
+| Component | Purpose and key outputs |
+| --- | --- |
+| Mesh Quality (MQ) | Per-face area, longest/shortest edge ratio, minimum angle and quad warpage. F contains flagged face indices; D previews problematic geometry. |
+| Mesh Topology (MT) | Raw and topology vertices, face vertex indices, unique edges, edge-to-face adjacency, naked/non-manifold edges and joined boundary loops. |
+| Mesh Parts (MP) | Split by shared topology edges, optionally largest area first. Each output part has source-face and source-vertex maps. A vertex-only contact remains separate. |
+| Extract Mesh Faces (MEF) | Selected mesh and remainder from face indices, with optional inversion and source-face/source-vertex maps for both results. |
+| Match Mesh Nodes (MMN) | Match query points to closest raw vertices across a mesh list using an RTree with a shrinking nearest-search radius. |
+| Match Mesh Faces (MMF) | Closest points on actual mesh faces, with source mesh and face indices; RTree mesh filtering followed by Rhino's cached mesh search. |
+| Orient Mesh Normals (MN) | Unify normals, orient each closed connected part outward independently, and optionally flip. Preserves vertex/face indices. |
+| Triangulate Mesh (MTR) | Split quads along the shortest valid diagonal; preserve all vertices and return the original face index for every triangle. |
+
+Mesh Quality thresholds default to edge ratio 10, minimum angle 10 degrees and
+maximum warpage equal to document tolerance. Warpage is the maximum distance of
+a quad vertex from the plane of the other three vertices, in model units.
+Triangles have zero warpage. Concave, folded and degenerate faces are always
+flagged. These are geometric indicators, not solver-specific FEM quality metrics.
+Connect **MQ.F to MEF.F** to isolate flagged faces. MT.N and MT.NM expose boundary
+and non-manifold edges independently of cleaning.
+
+Both match components accept **M** (mesh list), **P** (query points) and **D**
+(maximum distance, default document tolerance; zero accepts exact matches only).
+Outputs stay aligned with query order: unmatched queries return indices -1,
+a null closest point, NaN distance and OK=false. Node-distance ties choose the
+first mesh and vertex; a face query on a shared edge returns the face chosen by
+Rhino's closest-point search. These are nearest searches, not one-to-one assignments.
+
+Extraction and splitting retain vertex colors, texture coordinates, available
+vertex normals and mesh user strings; they omit orphan vertices and n-gon groups.
+Triangulation retains vertex attributes and user strings, recomputes normals and
+clears n-gon groups. Custom attached UserData and external face properties are
+not remapped by these tools. Source-index maps describe that single operation;
+they are not persistent provenance IDs across arbitrary downstream edits.
+
+Open meshes have no inferred outside. Orient Mesh Normals reports such parts
+and unifies their winding; use Flip to choose the opposite side. A closed cavity
+shell is also oriented outward independently, so nested material/cavity semantics
+must be supplied explicitly by the user.
 
 ## Clean Geometry (before Planar Mesh)
 

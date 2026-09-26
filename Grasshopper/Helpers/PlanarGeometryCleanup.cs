@@ -30,7 +30,10 @@ namespace Ant.GrasshopperPlugIn.Helpers
             public Brep Brep;
             public string Label;
             public bool Changed;
-            public void Dispose() => Brep?.Dispose();
+            BoundaryIndex boundary;
+            public BoundaryIndex Boundary => boundary ??= new BoundaryIndex(Loops);
+            public void ResetBoundary() { boundary?.Dispose(); boundary = null; }
+            public void Dispose() { ResetBoundary(); Brep?.Dispose(); }
         }
 
         sealed class Constraint
@@ -61,6 +64,8 @@ namespace Ant.GrasshopperPlugIn.Helpers
             int moved = 0, removed = 0, duplicateFaces = 0;
             GeometryBase activeGeometry = null;
             string activeLabel = "Surfaces";
+            using var previousBoundaries = new BoundaryIndex();
+            using var previousFaces = new BoundsIndex();
             try
             {
                 for (int i = 0; i < surfaces.Count; i++)
@@ -101,7 +106,7 @@ namespace Ant.GrasshopperPlugIn.Helpers
                             {
                                 var point = face.Plane.ClosestPoint(loop[p]);
                                 // Snap only to earlier faces. Never snap a hole onto its own outer loop.
-                                var snap = NearestBoundary(point, faces.Take(faces.Count - 1), mergeTolerance, face.Plane, epsilon);
+                                var snap = previousBoundaries.Nearest(point, mergeTolerance, face.Plane, epsilon);
                                 if (loop[p].DistanceTo(snap) > epsilon) { moved++; face.Changed = true; }
                                 loop[p] = snap;
                             }
@@ -110,17 +115,22 @@ namespace Ant.GrasshopperPlugIn.Helpers
                             if (loop.Count != previousCount) face.Changed = true;
                         }
                         Rebuild(face, epsilon);
-                        if (faces.Take(faces.Count - 1).Any(f => SameRegion(f.Brep, face.Brep, epsilon)))
+                        if (previousFaces.Search(face.Brep.GetBoundingBox(true), epsilon).Any(id => SameRegion(faces[id].Brep, face.Brep, epsilon)))
                         {
                             using var original = source.DuplicateFace(false);
                             result.Diagnostics.Add(CleanupDiagnosticKind.Discarded, original, label, "Duplicate planar face after matching");
                             faces.RemoveAt(faces.Count - 1); face.Dispose(); duplicateFaces++;
                         }
+                        else
+                        {
+                            previousFaces.Add(face.Brep.GetBoundingBox(true), faces.Count - 1);
+                            previousBoundaries.Add(face.Loops);
+                        }
                     }
                 }
 
                 // Insert T-junctions in both boundaries, even when their vertex subdivisions differ.
-                var vertices = faces.SelectMany(f => f.Loops).SelectMany(l => l).ToArray();
+                using var vertices = new PointIndex(faces.SelectMany(f => f.Loops).SelectMany(l => l));
                 foreach (var face in faces)
                 {
                     activeGeometry = face.Brep; activeLabel = face.Label;
@@ -135,6 +145,8 @@ namespace Ant.GrasshopperPlugIn.Helpers
                 }
                 if (unionCoplanar) UnionFaces(faces, epsilon, result);
                 activeGeometry = null; activeLabel = "Constraint cleanup";
+                using var hostIndex = new BoundsIndex();
+                for (int i = 0; i < faces.Count; i++) hostIndex.Add(faces[i].Brep.GetBoundingBox(true), i);
 
                 void ReadInputs(IList<IGH_GeometricGoo> inputs, bool refinement)
                 {
@@ -179,14 +191,16 @@ namespace Ant.GrasshopperPlugIn.Helpers
                             if (!refinement) size = null;
                             if (point.HasValue)
                             {
-                                var candidates = faces.Select(f => (face: f, point: ProjectPoint(point.Value, f, projectionTolerance, epsilon)))
+                                var candidates = hostIndex.Search(new BoundingBox(point.Value, point.Value), projectionTolerance)
+                                    .Select(id => faces[id]).Select(f => (face: f, point: ProjectPoint(point.Value, f, projectionTolerance, epsilon)))
                                     .Where(c => c.point.HasValue).OrderBy(c => c.point.Value.DistanceTo(point.Value)).ToList();
                                 if (candidates.Count > 0) constraints.Add(new Constraint { Point = candidates[0].point, Face = candidates[0].face, Size = size,
                                     Changed = point.Value.DistanceTo(candidates[0].point.Value) > epsilon });
                             }
                             else if (region != null)
                             {
-                                AddRegion(region, size, faces, constraints, projectionTolerance, curveTolerance, epsilon);
+                                AddRegion(region, size, hostIndex.Search(region.GetBoundingBox(true), projectionTolerance + curveTolerance)
+                                    .Select(id => faces[id]).ToList(), constraints, projectionTolerance, curveTolerance, epsilon);
                                 var parts = constraints.Skip(before).ToList();
                                 bool changedRegion = parts.Count != 1 || !LinearRegion(region) || !SameRegion(region, parts[0].Region, epsilon);
                                 foreach (var part in parts) part.Changed = changedRegion;
@@ -227,7 +241,8 @@ namespace Ant.GrasshopperPlugIn.Helpers
                                     total += segment.Length;
                                     // Partition one segment across faces and holes. All retained pieces lie on a face.
                                     var covered = new List<Interval>();
-                                    foreach (var face in faces.OrderBy(f => Math.Abs(f.Plane.DistanceTo(segment.PointAt(0.5)))))
+                                    foreach (var face in hostIndex.Search(segment.BoundingBox, projectionTolerance).Select(id => faces[id])
+                                        .OrderBy(f => Math.Abs(f.Plane.DistanceTo(segment.PointAt(0.5)))))
                                     {
                                         if (Math.Abs(face.Plane.DistanceTo(segment.From)) > projectionTolerance ||
                                             Math.Abs(face.Plane.DistanceTo(segment.To)) > projectionTolerance) continue;
@@ -358,39 +373,19 @@ namespace Ant.GrasshopperPlugIn.Helpers
                     DisposeAll(breps);
                     throw new ArgumentException(face.Label + ": cleanup changes boundary/hole topology. Reduce the tolerances.");
                 }
-                face.Brep?.Dispose(); face.Brep = breps[0];
+                face.Brep?.Dispose(); face.Brep = breps[0]; face.ResetBoundary();
             }
             finally { DisposeAll(curves); }
         }
 
-        static Point3d NearestBoundary(Point3d point, IEnumerable<Face> faces, double tolerance, Plane plane, double epsilon)
-        {
-            var best = point;
-            double distance = tolerance;
-            // Vertices take precedence over projections onto edges.
-            bool vertexFound = false;
-            foreach (var face in faces)
-                foreach (var p in face.Loops.SelectMany(l => l))
-                    if (Math.Abs(plane.DistanceTo(p)) <= epsilon && point.DistanceTo(p) <= distance)
-                    { best = p; distance = point.DistanceTo(p); vertexFound = true; }
-            if (vertexFound) return best;
-            foreach (var face in faces)
-                foreach (var line in face.Loops.SelectMany(l => l.GetSegments()))
-                {
-                    var p = line.ClosestPoint(point, true);
-                    if (Math.Abs(plane.DistanceTo(p)) <= epsilon && point.DistanceTo(p) <= distance)
-                    { best = p; distance = point.DistanceTo(p); }
-                }
-            return best;
-        }
-
-        static Polyline SplitBoundary(Polyline poly, IEnumerable<Point3d> vertices, double epsilon)
+        static Polyline SplitBoundary(Polyline poly, PointIndex vertices, double epsilon)
         {
             var output = new Polyline();
             foreach (var line in poly.GetSegments())
             {
                 output.Add(line.From);
-                var cuts = vertices.Select(p => (point: p, t: line.ClosestParameter(p)))
+                var cuts = vertices.Search(line.BoundingBox, epsilon).Select(id => vertices.Points[id])
+                    .Select(p => (point: p, t: line.ClosestParameter(p)))
                     .Where(c => c.t > epsilon / line.Length && c.t < 1 - epsilon / line.Length && line.PointAt(c.t).DistanceTo(c.point) <= epsilon)
                     .OrderBy(c => c.t);
                 foreach (var cut in cuts) if (output.Last.DistanceTo(cut.point) > epsilon) output.Add(cut.point);
@@ -404,7 +399,7 @@ namespace Ant.GrasshopperPlugIn.Helpers
             face.Brep.Faces[0].IsPointOnFace(u, v, epsilon) != PointFaceRelation.Exterior;
 
         static Point3d SnapOnFace(Point3d point, Face face, double tolerance, double epsilon) =>
-            NearestBoundary(point, new[] { face }, tolerance, face.Plane, epsilon);
+            face.Boundary.Nearest(point, tolerance, face.Plane, epsilon);
 
         static Point3d ProjectAndSnap(Point3d original, Face face, double tolerance, double epsilon)
         {
@@ -565,11 +560,13 @@ namespace Ant.GrasshopperPlugIn.Helpers
         {
             // Give nearly collinear overlapping lines the same carrier before splitting overlaps.
             var carriers = new List<Line>();
+            using var carrierIndex = new BoundsIndex();
             foreach (var item in items.Where(i => i.Line.HasValue))
             {
                 var line = item.Line.Value;
-                foreach (var carrier in carriers)
+                foreach (int carrierId in carrierIndex.Search(line.BoundingBox, tolerance))
                 {
+                    var carrier = carriers[carrierId];
                     var a = carrier.ClosestPoint(line.From, false); var b = carrier.ClosestPoint(line.To, false);
                     double ta = carrier.ClosestParameter(a), tb = carrier.ClosestParameter(b);
                     if (Math.Max(ta, tb) < 0 || Math.Min(ta, tb) > 1 || line.From.DistanceTo(a) > tolerance || line.To.DistanceTo(b) > tolerance) continue;
@@ -581,23 +578,26 @@ namespace Ant.GrasshopperPlugIn.Helpers
                     if (!SameLine(line, candidate, epsilon)) item.Changed = true;
                     item.Line = candidate; break;
                 }
+                carrierIndex.Add(item.Line.Value.BoundingBox, carriers.Count);
                 carriers.Add(item.Line.Value);
             }
             bool CanMove(Point3d original, Point3d candidate, Face face)
             {
                 if (!Contains(face, candidate, epsilon)) return false;
                 // A point already on a border can only move along the border.
-                bool wasOnBorder = face.Loops.SelectMany(l => l.GetSegments()).Any(l => l.DistanceTo(original, true) <= epsilon);
-                return !wasOnBorder || face.Loops.SelectMany(l => l.GetSegments()).Any(l => l.DistanceTo(candidate, true) <= epsilon);
+                bool wasOnBorder = face.Boundary.OnBoundary(original, epsilon);
+                return !wasOnBorder || face.Boundary.OnBoundary(candidate, epsilon);
             }
-            var representatives = new List<Point3d>();
+            using var representatives = new PointIndex();
             Point3d Snap(Point3d point, Face face, Line? ownLine = null)
             {
-                var candidates = representatives.Where(p => p.DistanceTo(point) <= tolerance && CanMove(point, p, face)).OrderBy(p => p.DistanceTo(point));
+                var candidates = representatives.Search(point, tolerance).Select(id => representatives.Points[id])
+                    .Where(p => p.DistanceTo(point) <= tolerance && CanMove(point, p, face)).OrderBy(p => p.DistanceTo(point));
                 foreach (var p in candidates) return p;
                 var best = point; double distance = tolerance;
-                foreach (var line in carriers)
+                foreach (int carrierId in carrierIndex.Search(new BoundingBox(point, point), tolerance))
                 {
+                    var line = carriers[carrierId];
                     if (ownLine.HasValue && SameLine(ownLine.Value, line, epsilon)) continue;
                     var candidate = line.ClosestPoint(point, true);
                     if (point.DistanceTo(candidate) <= distance && CanMove(point, candidate, face))
@@ -606,7 +606,8 @@ namespace Ant.GrasshopperPlugIn.Helpers
                 representatives.Add(best); return best;
             }
             // Boundary points first; interior constraints cannot pull a boundary point off its edge.
-            foreach (var face in items.Select(i => i.Face).Distinct()) representatives.AddRange(face.Loops.SelectMany(l => l));
+            foreach (var face in items.Select(i => i.Face).Distinct())
+                foreach (var point in face.Loops.SelectMany(l => l)) representatives.Add(point);
             foreach (var item in items)
             {
                 if (item.Point.HasValue)
@@ -634,6 +635,7 @@ namespace Ant.GrasshopperPlugIn.Helpers
             // Split crossings, T-junctions and collinear overlaps, then deduplicate the resulting pieces.
             var lines = items.Where(i => i.Line.HasValue).ToList();
             var cuts = lines.Select(i => new List<double> { 0, 1 }).ToArray();
+            using var pointConstraints = new PointIndex(items.Where(c => c.Point.HasValue).Select(c => c.Point.Value));
             using (var tree = new RTree())
             {
                 for (int i = 0; i < lines.Count; i++) tree.Insert(lines[i].Line.Value.BoundingBox, i);
@@ -654,10 +656,11 @@ namespace Ant.GrasshopperPlugIn.Helpers
                         }
                     }
                     // Points on a line are also mesh vertices.
-                    foreach (var point in items.Where(c => c.Point.HasValue))
+                    foreach (int pointId in pointConstraints.Search(a.BoundingBox, epsilon))
                     {
-                        double t = a.ClosestParameter(point.Point.Value);
-                        if (t > 0 && t < 1 && a.PointAt(t).DistanceTo(point.Point.Value) <= epsilon) cuts[i].Add(t);
+                        var point = pointConstraints.Points[pointId];
+                        double t = a.ClosestParameter(point);
+                        if (t > 0 && t < 1 && a.PointAt(t).DistanceTo(point) <= epsilon) cuts[i].Add(t);
                     }
                 }
             }
@@ -680,10 +683,13 @@ namespace Ant.GrasshopperPlugIn.Helpers
                 }
             }
             var unique = new List<Constraint>();
+            using var uniqueIndex = new BoundsIndex();
             foreach (var item in items)
             {
-                var existing = unique.FirstOrDefault(c => SameConstraint(c, item, epsilon));
-                if (existing == null) unique.Add(item);
+                var box = item.Point.HasValue ? new BoundingBox(item.Point.Value, item.Point.Value) :
+                    item.Line.HasValue ? item.Line.Value.BoundingBox : item.Region.GetBoundingBox(true);
+                var existing = uniqueIndex.Search(box, epsilon).Select(id => unique[id]).FirstOrDefault(c => SameConstraint(c, item, epsilon));
+                if (existing == null) { uniqueIndex.Add(box, unique.Count); unique.Add(item); }
                 else
                 {
                     if (item.Size.HasValue)

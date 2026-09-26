@@ -119,29 +119,45 @@ namespace Ant.GrasshopperPlugIn.Helpers
 
         internal void MeshDelta(Mesh before, Mesh after, string stage, bool includeDiscarded = true)
         {
-            List<int> Missing(Mesh source, Mesh target)
+            var beforeKeys = Enumerable.Range(0, before.Faces.Count).Select(i => FaceKey(before, i)).ToArray();
+            var afterKeys = Enumerable.Range(0, after.Faces.Count).Select(i => FaceKey(after, i)).ToArray();
+            List<int> Missing(FaceSignature[] source, FaceSignature[] target)
             {
-                var counts = Enumerable.Range(0, target.Faces.Count).Select(i => FaceKey(target, i)).GroupBy(k => k).ToDictionary(g => g.Key, g => g.Count());
+                var counts = new Dictionary<FaceSignature, int>(target.Length);
+                foreach (var key in target) { counts.TryGetValue(key, out int count); counts[key] = count + 1; }
                 var missing = new List<int>();
-                for (int i = 0; i < source.Faces.Count; i++)
+                for (int i = 0; i < source.Length; i++)
                 {
-                    string key = FaceKey(source, i);
+                    var key = source[i];
                     if (counts.TryGetValue(key, out int count) && count > 0) counts[key] = count - 1;
                     else missing.Add(i);
                 }
                 return missing;
             }
-            if (includeDiscarded) AddFaces(CleanupDiagnosticKind.Discarded, before, Missing(before, after), stage, "Face removed or replaced during this operation");
-            AddFaces(CleanupDiagnosticKind.Changed, after, Missing(after, before), stage, "New/repaired face after this operation");
+            if (includeDiscarded) AddFaces(CleanupDiagnosticKind.Discarded, before, Missing(beforeKeys, afterKeys), stage, "Face removed or replaced during this operation");
+            AddFaces(CleanupDiagnosticKind.Changed, after, Missing(afterKeys, beforeKeys), stage, "New/repaired face after this operation");
         }
 
-        private static string FaceKey(Mesh mesh, int index)
+        private readonly record struct FaceSignature(Point3d A, Point3d B, Point3d C, Point3d D, bool Quad);
+
+        private static FaceSignature FaceKey(Mesh mesh, int index)
         {
             var f = mesh.Faces[index];
-            var ids = f.IsTriangle ? new[] { f.A, f.B, f.C } : new[] { f.A, f.B, f.C, f.D };
-            var points = ids.Select(i => mesh.Vertices.Point3dAt(i)).Select(p => string.Format(CultureInfo.InvariantCulture, "{0:R},{1:R},{2:R}", p.X, p.Y, p.Z)).ToArray();
-            // Rotation of a face's index list is immaterial; a reversed normal is a visible change.
-            return Enumerable.Range(0, points.Length).Select(start => string.Join(";", Enumerable.Range(0, points.Length).Select(i => points[(start + i) % points.Length]))).OrderBy(s => s, StringComparer.Ordinal).First();
+            Span<Point3d> points = stackalloc Point3d[4];
+            points[0] = mesh.Vertices.Point3dAt(f.A); points[1] = mesh.Vertices.Point3dAt(f.B);
+            points[2] = mesh.Vertices.Point3dAt(f.C); points[3] = mesh.Vertices.Point3dAt(f.D);
+            int count = f.IsTriangle ? 3 : 4, first = 0;
+            for (int start = 1; start < count; start++)
+                for (int offset = 0; offset < count; offset++)
+                {
+                    var a = points[(start + offset) % count]; var b = points[(first + offset) % count];
+                    int order = a.X.CompareTo(b.X); if (order == 0) order = a.Y.CompareTo(b.Y); if (order == 0) order = a.Z.CompareTo(b.Z);
+                    if (order < 0) { first = start; break; }
+                    if (order > 0) break;
+                }
+            // Typed keys avoid coordinate formatting and multiple per-face string allocations.
+            return new FaceSignature(points[first], points[(first + 1) % count], points[(first + 2) % count],
+                f.IsQuad ? points[(first + 3) % count] : Point3d.Origin, f.IsQuad);
         }
 
         internal void AttachFailure(Exception exception)

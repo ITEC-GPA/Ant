@@ -94,9 +94,11 @@ namespace Ant.GrasshopperPlugIn.Helpers
 
                 if (mesh.Faces.Count > 0)
                 {
-                    using var beforeNormals = mesh.DuplicateMesh();
+                    var beforeNormals = mesh.Faces.ToArray();
                     int normalsChanged = mesh.UnifyNormals();
-                    if (normalsChanged > 0) result.Diagnostics.MeshDelta(beforeNormals, mesh, "Normal unification", false);
+                    if (normalsChanged > 0) result.Diagnostics.AddFaces(CleanupDiagnosticKind.Changed, mesh,
+                        Enumerable.Range(0, mesh.Faces.Count).Where(i => !beforeNormals[i].Equals(mesh.Faces[i])),
+                        "Normal unification", "Face orientation unified");
                     mesh.FaceNormals.ComputeFaceNormals();
                     mesh.Normals.ComputeNormals();
                     if (!mesh.IsValid)
@@ -162,7 +164,7 @@ namespace Ant.GrasshopperPlugIn.Helpers
         {
             var points = mesh.Vertices.ToPoint3dArray();
             using var tree = new RTree();
-            var moved = new HashSet<int>();
+            var moved = new bool[points.Length];
             for (int i = 0; i < points.Length; i++)
             {
                 int nearest = -1;
@@ -181,13 +183,13 @@ namespace Ant.GrasshopperPlugIn.Helpers
                 else
                 {
                     mesh.Vertices.SetVertex(i, points[nearest]);
-                    if (point != points[nearest]) moved.Add(i);
+                    if (point != points[nearest]) moved[i] = true;
                 }
                 // Only fixed representatives are indexed: proximity chains cannot drag a point beyond VT.
             }
             diagnostics.AddFaces(CleanupDiagnosticKind.Changed, mesh, Enumerable.Range(0, mesh.Faces.Count).Where(i =>
             {
-                var f = mesh.Faces[i]; return moved.Contains(f.A) || moved.Contains(f.B) || moved.Contains(f.C) || moved.Contains(f.D);
+                var f = mesh.Faces[i]; return moved[f.A] || moved[f.B] || moved[f.C] || moved[f.D];
             }), "Vertex matching", "Face vertices moved within VT");
         }
 
@@ -212,10 +214,10 @@ namespace Ant.GrasshopperPlugIn.Helpers
 
         private static void CaptureUnusedVertices(Mesh mesh, CleanupDiagnostics diagnostics, string stage)
         {
-            var used = new HashSet<int>();
-            foreach (var f in mesh.Faces) { used.Add(f.A); used.Add(f.B); used.Add(f.C); used.Add(f.D); }
+            var used = new bool[mesh.Vertices.Count];
+            foreach (var f in mesh.Faces) { used[f.A] = true; used[f.B] = true; used[f.C] = true; used[f.D] = true; }
             for (int i = 0; i < mesh.Vertices.Count; i++)
-                if (!used.Contains(i))
+                if (!used[i])
                 {
                     using var point = new Rhino.Geometry.Point(mesh.Vertices.Point3dAt(i));
                     diagnostics.Add(CleanupDiagnosticKind.Discarded, point, $"{stage}, vertex {i}", "Unused vertex");

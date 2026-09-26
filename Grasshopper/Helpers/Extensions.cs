@@ -12,13 +12,14 @@ namespace Ant.GrasshopperPlugIn.Helpers
         public static Mesh ConvertToRhinoMesh(this GPC.Geometry.Meshes.Mesh mesh)
         {
             Mesh rhinoMesh = new Mesh();
+            rhinoMesh.Vertices.UseDoublePrecisionVertices = true;
 
             Dictionary<int, int> idRhinoIndexMap = new Dictionary<int, int>();
             GPC.Geometry.Meshes.MeshVertex[] vertices = mesh.GetVertices();
             GPC.Geometry.Meshes.MeshFace[] faces = mesh.GetFaces();
 
-            Dictionary<int, List<int>> indexMap = mesh.Vertices.GetElementIdMap();
-
+            try
+            {
             for (int v = 0; v < vertices.Length; v++)
             {
                 int tag = rhinoMesh.Vertices.Add(vertices[v].Point.X, vertices[v].Point.Y, vertices[v].Point.Z);
@@ -30,18 +31,14 @@ namespace Ant.GrasshopperPlugIn.Helpers
                 if (faces[f].IsQuad)
                 {
                     rhinoMesh.Faces.AddFace(
-                        idRhinoIndexMap[mesh.Vertices.GetElementByIndex(indexMap[faces[f].A].FirstOrDefault()).Id],
-                        idRhinoIndexMap[mesh.Vertices.GetElementByIndex(indexMap[faces[f].B].FirstOrDefault()).Id],
-                        idRhinoIndexMap[mesh.Vertices.GetElementByIndex(indexMap[faces[f].C].FirstOrDefault()).Id],
-                        idRhinoIndexMap[mesh.Vertices.GetElementByIndex(indexMap[faces[f].D].FirstOrDefault()).Id]
+                        idRhinoIndexMap[faces[f].A], idRhinoIndexMap[faces[f].B],
+                        idRhinoIndexMap[faces[f].C], idRhinoIndexMap[faces[f].D]
                     );
                 }
                 else
                 {
                     rhinoMesh.Faces.AddFace(
-                        idRhinoIndexMap[mesh.Vertices.GetElementByIndex(indexMap[faces[f].A].FirstOrDefault()).Id],
-                        idRhinoIndexMap[mesh.Vertices.GetElementByIndex(indexMap[faces[f].B].FirstOrDefault()).Id],
-                        idRhinoIndexMap[mesh.Vertices.GetElementByIndex(indexMap[faces[f].C].FirstOrDefault()).Id]
+                        idRhinoIndexMap[faces[f].A], idRhinoIndexMap[faces[f].B], idRhinoIndexMap[faces[f].C]
                     );
                 }
             }
@@ -49,6 +46,8 @@ namespace Ant.GrasshopperPlugIn.Helpers
             rhinoMesh.Compact();
 
             return rhinoMesh;
+            }
+            catch { rhinoMesh.Dispose(); throw; }
         }
     }
 }
