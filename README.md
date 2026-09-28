@@ -7,6 +7,15 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 The plugin version is defined in `Grasshopper/Ant.Grasshopper.csproj` and is
 included in the compiled assembly and Grasshopper plugin information.
 
+## Grasshopper examples
+
+Three self-contained `.gh` definitions include embedded geometry, Italian canvas
+notes, adjustable tolerances and PNG previews: planar meshing with a hole and
+refinement, mesh cleanup/quality/parts, and node/face matching with extraction.
+See [examples/README.md](examples/README.md) for instructions and expected results.
+The reproducible generator in `tools/Examples` saves, reopens and recomputes each
+file, checking the resulting geometry and connections.
+
 ## Build
 
 The sibling repositories `Geometry`, `Gmsh.Net` and `Utilities` must be present.
