@@ -1,8 +1,9 @@
 // Load-time check shared by the gPC Grasshopper plug-ins: keep every copy identical to the reference copy in
 // BridGHe/src/BridGHe.Grasshopper/Helpers/PluginBuildCheck.cs, tested by BridGHe/tests/BridGHe.Smoke/PluginBuildCheckTests.cs.
-// C# 7.3: some plug-ins target net48 with the default language version.
+// C# 5: Meerkat compiles with the .NET Framework csc, which rejects even a skipped #nullable; the pragma below silences the
+// nullable warnings of the plug-ins that enable them.
 #if NET
-#nullable disable
+#pragma warning disable 8600, 8601, 8602, 8603, 8604, 8618, 8619, 8625
 #endif
 using System;
 using System.Collections.Generic;
