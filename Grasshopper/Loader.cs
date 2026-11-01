@@ -16,6 +16,7 @@ namespace Ant.GrasshopperPlugIn
             server.AddCategorySymbolName("Ant", 'A');
             server.AddCategoryIcon("Ant", Properties.Resources.PlugInTabIcon);
             RhinoApp.Closing += RhinoApp_Closing;
+            Gpc.PluginChecks.PluginBuildCheck.Start(typeof(Loader).Assembly, "Ant");
 
             return GH_LoadingInstruction.Proceed;
         }

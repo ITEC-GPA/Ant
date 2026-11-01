@@ -145,6 +145,15 @@
     <Error Condition="'$(GmshNativeVersion)' == ''" Text="GmshNativeVersion is missing from GMsh.Net.csproj." />
     <Copy SourceFiles="$(GmshNetRoot)\dll\windows\gmsh-$(GmshNativeVersion).dll" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
   </Target>
+  <!-- The commit of the build, read at load by PluginBuildCheck; the informational version stays without it. -->
+  <Target Name="AddBuildCommitMetadata" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="InitializeSourceControlInformation" Condition="'$(SourceControlInformationFeatureSupported)' == 'true'">
+    <ItemGroup>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute" Condition="'$(SourceRevisionId)' != ''">
+        <_Parameter1>BuildCommit</_Parameter1>
+        <_Parameter2>$(SourceRevisionId)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
   <PropertyGroup>
     <FallbackCulture>en-US</FallbackCulture>
   </PropertyGroup>
