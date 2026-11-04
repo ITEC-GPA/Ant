@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1 - 2026-11-04
+
+- The load-time check (PluginBuildCheck.cs, identical to the copy in BridGHe)
+  no longer hangs Rhino. A shared library (GPCGeometry, GPCUtilities) loaded
+  first by a worker thread was reported with RhinoApp.WriteLine from that
+  thread while the runtime held the load; WriteLine waits for Rhino's thread,
+  and when that thread waited for the same library neither returned. The line
+  is now queued to Rhino's thread without waiting. No component changes.
+
 ## 1.1.0 - 2026-09-26
 
 - Added Mesh Quality, Mesh Topology, Mesh Parts, Extract Mesh Faces, Match Mesh
