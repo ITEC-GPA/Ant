@@ -14,7 +14,7 @@ namespace Ant.GrasshopperPlugIn.Components
         /// Initializes a new instance of the GetPropertiesComponent class.
         /// </summary>
         public GetPropertiesComponent()
-          : base("Get Properties", "GP", "Retrieve the Name, Layer and Colo properties of the given geometry", "Ant", "Query")
+          : base("Get Properties", "GP", "Retrieve the Name, Layer and Color properties of the given geometry", "Ant", "Query")
         {
         }
 

@@ -13,7 +13,7 @@ namespace Ant.GrasshopperPlugIn.Components
         /// Initializes a new instance of the RecomputeComponent class.
         /// </summary>
         public RecomputeComponent()
-          : base("Recompute", "R", "Forve the node recompute from this node", "Ant", "Workflow")
+          : base("Recompute", "R", "Force recomputation from this component", "Ant", "Workflow")
         {
         }
 

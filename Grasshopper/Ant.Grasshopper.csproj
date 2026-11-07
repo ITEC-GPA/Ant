@@ -5,13 +5,14 @@
     <OutputType>Library</OutputType>
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Version>1.1.1</Version>
+    <Version>1.1.2</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <UseWindowsForms>true</UseWindowsForms>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
 	  <PlatformTarget>x64</PlatformTarget>
 	  <GmshNetRoot>$(MSBuildThisFileDirectory)..\..\Gmsh.Net</GmshNetRoot>
+    <GeometryArtifactsRoot>$(MSBuildThisFileDirectory)..\bin\geometry</GeometryArtifactsRoot>
 	  <TargetExt>.gha</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
@@ -29,13 +30,13 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="GMesh">
-      <HintPath>..\..\Geometry\GMesh\bin\Release\GMesh.dll</HintPath>
+      <HintPath>$(GeometryArtifactsRoot)\bin\GMesh\release\GMesh.dll</HintPath>
     </Reference>
     <Reference Include="GMsh.Net">
       <HintPath>$(GmshNetRoot)\src\GMsh.Net\bin\Release\netstandard2.0\GMsh.Net.dll</HintPath>
     </Reference>
     <Reference Include="GPCGeometry">
-      <HintPath>..\..\Geometry\GPCGeometry\bin\Release\netstandard2.0\GPCGeometry.dll</HintPath>
+      <HintPath>$(GeometryArtifactsRoot)\bin\GPCGeometry\release\GPCGeometry.dll</HintPath>
     </Reference>
     <Reference Include="GPCUtilities">
       <HintPath>..\..\Utilities\GPCUtilities\bin\Release\netstandard2.0\GPCUtilities.dll</HintPath>

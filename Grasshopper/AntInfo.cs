@@ -28,7 +28,7 @@ namespace Ant.GrasshopperPlugIn
             get
             {
                 //Return a short string describing the purpose of this GHA library.
-                return "Drawing Utilities";
+                return "Planar meshing, mesh tools and drawing utilities";
             }
         }
         public override Guid Id

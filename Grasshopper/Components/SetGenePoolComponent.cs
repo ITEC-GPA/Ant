@@ -17,7 +17,7 @@ namespace Ant.GrasshopperPlugIn.Components
         /// Initializes a new instance of the SetGenePoolComponent class.
         /// </summary>
         public SetGenePoolComponent()
-          : base("Set Gene Pool", "SGP", "Set a gene pool values", "Ant", "Utilities")
+          : base("Set Gene Pool", "SGP", "Set the values of a gene pool", "Ant", "Utilities")
         {
             _run = false;
         }

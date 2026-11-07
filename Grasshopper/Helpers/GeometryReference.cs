@@ -46,9 +46,6 @@ namespace Ant.GrasshopperPlugIn.Helpers
                     case ObjectType.Mesh:
                         geom = new GH_Mesh((Mesh)obj.Geometry);
                         break;
-                    //case ObjectType.Point:
-                    //    geom = new GH_Point((Point)obj.Geometry.);
-                    //    break;
                     case ObjectType.Surface:
                         geom = new GH_Surface((Surface)obj.Geometry);
                         break;

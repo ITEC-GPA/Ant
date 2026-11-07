@@ -16,7 +16,7 @@ namespace Ant.GrasshopperPlugIn.Components
         /// Initializes a new instance of the StopComponent class.
         /// </summary>
         public StopComponent()
-          : base("Stop", "Ant", "Stop the execution", "Ant", "Workflow")
+          : base("Stop", "Stop", "Stop the execution", "Ant", "Workflow")
         {
             _go = false;
         }

@@ -12,7 +12,7 @@ namespace Ant.GrasshopperPlugIn.Components
         /// Initializes a new instance of the GridDisposeComponent class.
         /// </summary>
         public GridDisposeComponent()
-          : base("Grid Dispose", "GD", "Dispose the given geometries to a grid", "Ant", "Utilities")
+          : base("Grid Dispose", "GD", "Arrange the given geometries on a grid", "Ant", "Utilities")
         {
         }
 

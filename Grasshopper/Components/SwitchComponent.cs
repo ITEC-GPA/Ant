@@ -18,7 +18,7 @@ namespace Ant.GrasshopperPlugIn.Components
         /// Initializes a new instance of the SwitchComponent class.
         /// </summary>
         public SwitchComponent()
-          : base("Switch", "SW", "Description", "Ant", "Workflow")
+          : base("Switch", "SW", "Route the selected input tree to the output", "Ant", "Workflow")
         {
         }
 
@@ -56,13 +56,8 @@ namespace Ant.GrasshopperPlugIn.Components
             {
                 if (src is GH_NumberSlider slider)
                 {
-                    //slider.Slider.Type = Grasshopper.GUI.Base.GH_SliderAccuracy.Integer
                     slider.Slider.Minimum = 1;
                     slider.Slider.Maximum = Params.Input.Count - 1;
-                }
-                else if (src is GH_ValueList vallist)
-                {
-
                 }
             }
 

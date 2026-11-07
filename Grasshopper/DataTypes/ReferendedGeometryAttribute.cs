@@ -1,6 +1,4 @@
 ﻿using System;
-using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 using GH_IO.Serialization;
 using Grasshopper.Kernel.Types;
 
@@ -67,25 +65,7 @@ namespace Ant.GrasshopperPlugIn.DataTypes
 
         public bool Read(GH_IReader reader)
         {
-            try
-            {
-                //_referenceID = reader.GetGuid("ReferenceID");
-                //_key = reader.GetString("Key");
-
-                //byte[] ba = reader.GetByteArray("Value");                
-                //BinaryFormatter bf = new BinaryFormatter();
-                //using (MemoryStream ms = new MemoryStream())
-                //{
-                //    ms.Write(ba, 0, ba.Length);
-                //    ms.Seek(0, SeekOrigin.Begin);
-                //    _value = bf.Deserialize(ms);
-                //}
-            }
-            catch (Exception e)
-            {
-                System.Diagnostics.Debug.WriteLine("ReferendedGeometryAttribute.Read: {0}", e.Message);
-                return false;
-            }
+            // Preserve the existing no-op archive behavior; attribute persistence is not implemented.
             return true;
         }
 
@@ -96,23 +76,7 @@ namespace Ant.GrasshopperPlugIn.DataTypes
 
         public bool Write(GH_IWriter writer)
         {
-            try
-            {
-                //writer.SetGuid("ReferenceID", _referenceID);
-                //writer.SetString("Key", _key);
-
-                //BinaryFormatter bf = new BinaryFormatter();
-                //using (MemoryStream ms = new MemoryStream())
-                //{
-                //    bf.Serialize(ms, _value);
-                //    writer.SetByteArray("Value", ms.ToArray());
-                //}
-            }
-            catch (Exception e)
-            {
-                System.Diagnostics.Debug.WriteLine("ReferendedGeometryAttribute.Write: {0}", e.Message);
-                return false;
-            }
+            // Preserve the existing no-op archive behavior; attribute persistence is not implemented.
             return true;
         }
     }

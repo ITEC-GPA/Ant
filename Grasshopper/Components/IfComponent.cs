@@ -15,7 +15,7 @@ namespace Ant.GrasshopperPlugIn.Components
         /// Initializes a new instance of the IfComponent class.
         /// </summary>
         public IfComponent()
-          : base("If", "IF", "Description", "Ant", "Workflow")
+          : base("If", "IF", "Select a value according to a comparison between two inputs", "Ant", "Workflow")
         {
         }
 
@@ -34,8 +34,8 @@ namespace Ant.GrasshopperPlugIn.Components
             condition.AddNamedValue("=", 3);
             condition.AddNamedValue(">=", 4);
             condition.AddNamedValue(">", 5);
-            pManager.AddGenericParameter("True", "T", "The value to returns if the condition is true", GH_ParamAccess.item);
-            pManager.AddGenericParameter("False", "F", "The value to returns if the condition is false", GH_ParamAccess.item);
+            pManager.AddGenericParameter("True", "T", "The value to return if the condition is true", GH_ParamAccess.item);
+            pManager.AddGenericParameter("False", "F", "The value to return if the condition is false", GH_ParamAccess.item);
         }
 
         /// <summary>

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.2 - 2026-11-07
+
+- Update to GMesh 1.2.0.1 (.NET 8), fixing boundary/hole constraint failures
+  caused by treating OCC bounding-box minima as vertex coordinates.
+- Build GMesh and GPCGeometry together with dotnet into isolated outputs;
+  remove the GMesh .NET Framework / Visual Studio MSBuild requirement.
+- Regenerate the examples with a boundary-to-boundary constraint and a constraint
+  through the hole. Check area, the open hole, retained mesh-edge chains and
+  discarded geometry before and after saving/reopening the definition.
+- Align the README component inventory, correct UI text and remove verified
+  unused code/settings without changing component GUIDs, ports or solving logic.
+
 ## 1.1.1 - 2026-11-04
 
 - The load-time check (PluginBuildCheck.cs, identical to the copy in BridGHe)

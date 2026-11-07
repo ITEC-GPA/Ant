@@ -92,7 +92,6 @@ namespace Ant.GrasshopperPlugIn.Components
                 List<GeometryBase> output_geoms = new List<GeometryBase>();
                 if (input_keys.Count > 0)
                 {
-                    //output_geoms = input_geoms.Where(g => g.UserDictionary.Where(d => input_keys.Contains(d.Key)).Count() > 0).ToList();
                     foreach (GeometryBase geom in input_geoms)
                     {
                         bool match = true;
@@ -113,10 +112,6 @@ namespace Ant.GrasshopperPlugIn.Components
                         input_geoms = new List<GeometryBase>(output_geoms);
                         output_geoms.Clear();
                     }
-
-                    //output_geoms = input_geoms.Where(g => input_keys.Any(k => input_vals.Any(v => g.UserDictionary[k] == v))).ToList();
-                    //output_geoms = input_geoms.Where(g => input_vals.Any(v => g.UserDictionary.Values.Contains(v))).ToList();
-                    //output_geoms = input_geoms.Where(g => g.UserDictionary.Where(d => input_vals.Select(v => v.ToString()).Contains(d.Value)).Count() > 0).ToList();
 
                     foreach (GeometryBase geom in input_geoms)
                     {

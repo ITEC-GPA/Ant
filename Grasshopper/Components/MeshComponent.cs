@@ -7,7 +7,6 @@ using Grasshopper.Kernel.Types;
 using GPC.Utilities.Extensions;
 using GH_IO.Serialization;
 using Rhino.Geometry;
-//using Sentry;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -363,7 +362,6 @@ namespace Ant.GrasshopperPlugIn.Components
 			catch (Exception e)
 			{
 				_errors.Add(e.Message);
-				//SentrySdk.CaptureException(e);
 
 				foreach (var mesh in converted) mesh.Value?.Dispose();
 				return new List<GH_Mesh>();
@@ -425,8 +423,6 @@ namespace Ant.GrasshopperPlugIn.Components
 					Errors = new List<string>() { e.Message },
 					Value = new List<GH_Mesh>()
 				};
-
-				//SentrySdk.CaptureException(e);
 
 				return results;
 			}
@@ -514,8 +510,8 @@ namespace Ant.GrasshopperPlugIn.Components
 				// tolleranza di GPCGeometry 10E-4
 				// la tolleranza di gmsh possiamo cambiarla attraverso la funzione Geometry.Tolerance presente nel meshatore tra le opzioni del GenerateMeshOptions
 				// usiamo questo metodo dello scalare < 1 la geometria per poter gestire la tolleranza di OCC. riducendo il modello, "aumentiamo" la tolleranza di OCC. 
-				// questo ci permette di unifromare il comportamento di tutto il codice e non avere problemi di match di punti.
-				// la tolleranza base è quella di OCC. l'utente, inserendo una tolleranza, scala il modello di una potenza tale da matchare la tollernza di imput e quella di OCC. 
+				// questo ci permette di uniformare il comportamento di tutto il codice e non avere problemi di match di punti.
+				// la tolleranza base è quella di OCC. l'utente, inserendo una tolleranza, scala il modello di una potenza tale da matchare la tolleranza di input e quella di OCC.
 				// La tolleranza di gmsh si comporta di conseguenza.
 				// si consiglia una tolleranza di 10-3/10-4 (o inferiori) perchè le funzioni di matching lavorano con 100 volte questo valore, quindi non è consigliato arrivare a valori di 0.1/1.
 

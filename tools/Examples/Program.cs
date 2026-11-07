@@ -111,15 +111,15 @@ internal static class ExampleBuilder
     static GH_Document Planar()
     {
         var doc=Document();
-        Panel(doc,"01 / PANNELLO FORATO - DALLE GEOMETRIE ALLA MESH\nAnt 1.1.0 | Rhino 8 Windows | Tutte le geometrie sono salvate in questo file.\nPremi Run su Planar Mesh. Poi modifica gli slider e premi di nuovo Run; KR abilita il ricalcolo continuo.",50,30,1420,105);
-        Panel(doc,"1. GEOMETRIA\nPannello 12 x 8 con foro 2 x 2.\nLe linee e i punti sono leggermente fuori piano. Un punto e' duplicato.\nClean Geometry proietta i vincoli interni e rimuove i duplicati.",50,170,320,160);
+        Panel(doc,"01 / PANNELLO FORATO - DALLE GEOMETRIE ALLA MESH\nAnt 1.1.2 | Rhino 8 Windows | Tutte le geometrie sono salvate in questo file.\nPremi Run su Planar Mesh. Poi modifica gli slider e premi di nuovo Run; KR abilita il ricalcolo continuo.",50,30,1420,105);
+        Panel(doc,"1. GEOMETRIA\nPannello 12 x 8 con foro 2 x 2.\nLe linee e i punti sono leggermente fuori piano. Un punto e' duplicato.\nVincoli bordo-bordo a y=2 e attraverso il foro a y=4. Clean Geometry proietta, taglia al foro e rimuove i duplicati.",50,170,320,160);
         var surfaces=Put(doc,new Param_Brep(),190,375,"Pannello con foro");surfaces.Hidden=true;
         using(var outer=new Rectangle3d(Plane.WorldXY,new Interval(0,12),new Interval(0,8)).ToNurbsCurve())
         using(var inner=new Rectangle3d(Plane.WorldXY,new Interval(5,7),new Interval(3,5)).ToNurbsCurve())
             surfaces.PersistentData.Append(new GH_Brep(Brep.CreatePlanarBreps(new[]{outer,inner},1E-7).Single()));
         var embedded=Put(doc,new Param_Geometry(),190,430,"Linee e punti da pulire");embedded.Hidden=true;
-        embedded.PersistentData.Append(new GH_Line(new Line(P(1,2,0.005),P(11,2,0.005))));
-        embedded.PersistentData.Append(new GH_Line(new Line(P(1,6,0.005),P(4,6,0.005))));
+        embedded.PersistentData.Append(new GH_Line(new Line(P(0,2,0.005),P(12,2,0.005))));
+        embedded.PersistentData.Append(new GH_Line(new Line(P(0,4,0.005),P(12,4,0.005))));
         embedded.PersistentData.Append(new GH_Point(P(9,6,0.006)));embedded.PersistentData.Append(new GH_Point(P(9,6,0.006)));
         var point=Put(doc,new Param_Point(),130,650,"Centro refinement");point.Hidden=true;point.PersistentData.Append(new GH_Point(P(3,4,0.004)));
         var local=Slider(doc,"Size locale",0.25m,0.1m,1m,2,50,715);
@@ -143,7 +143,7 @@ internal static class ExampleBuilder
     static GH_Document Cleanup()
     {
         var doc=Document();
-        Panel(doc,"02 / PULIZIA, QUALITA' E GESTIONE DELLE PARTI\nAnt 1.1.0 | Ricalcolo automatico | Geometrie gia' incluse.\nDue pannelli hanno una fessura di 0.0005; ci sono una faccia duplicata, una degenere, un triangolo minuscolo e uno molto allungato.",50,30,1420,105);
+        Panel(doc,"02 / PULIZIA, QUALITA' E GESTIONE DELLE PARTI\nAnt 1.1.2 | Ricalcolo automatico | Geometrie gia' incluse.\nDue pannelli hanno una fessura di 0.0005; ci sono una faccia duplicata, una degenere, un triangolo minuscolo e uno molto allungato.",50,30,1420,105);
         var left=Quad(0,0,4,4);left.Vertices.Add(20,20,0);var duplicate=left.DuplicateMesh();duplicate.Flip(true,true,true);
         var source=MeshInput(doc,"Mesh con difetti",190,350,left,Quad(4.0005,0,3.9995,4),duplicate,Quad(0,7,4,2),
             Triangle(P(10,0),P(12,0),P(10,0.03)),Triangle(P(10,2),P(10.01,2),P(10,2.01)),Triangle(P(10,4),P(11,4),P(12,4)));
@@ -176,7 +176,7 @@ internal static class ExampleBuilder
     static GH_Document Matching()
     {
         var doc=Document();
-        Panel(doc,"03 / MATCHING DI NODI E FACCE + ESTRAZIONE\nAnt 1.1.0 | Un'unica mesh, due isole | Gli indici delle facce valgono solo per questa mesh.\nConfronta le uscite M, V/F, D e OK. Lo stesso punto puo' appartenere a una faccia senza essere vicino a un vertice.",50,30,1420,105);
+        Panel(doc,"03 / MATCHING DI NODI E FACCE + ESTRAZIONE\nAnt 1.1.2 | Un'unica mesh, due isole | Gli indici delle facce valgono solo per questa mesh.\nConfronta le uscite M, V/F, D e OK. Lo stesso punto puo' appartenere a una faccia senza essere vicino a un vertice.",50,30,1420,105);
         var mesh=new Mesh();mesh.Vertices.UseDoublePrecisionVertices=true;
         for(int y=0;y<3;y++)for(int x=0;x<3;x++)mesh.Vertices.Add(x*2,y*2,0);
         for(int y=0;y<2;y++)for(int x=0;x<2;x++){int i=y*3+x;mesh.Faces.AddFace(i,i+1,i+4,i+3);}
@@ -219,8 +219,26 @@ internal static class ExampleBuilder
         Assert(clean.Params.Output[0].VolatileData.AllData(true).OfType<GH_Brep>().Single().Value.Loops.Count==2,"Planar example lost its hole.");
         var mesh=Meshes(final).Single();Assert(mesh.IsValid && mesh.Faces.Count>20,"Planar example did not mesh.");
         var closest=mesh.ClosestMeshPoint(P(6,4),0);Assert(closest!=null && closest.Point.DistanceTo(P(6,4))>0.9,"Mesher filled the hole.");
+        using(var mass=AreaMassProperties.Compute(mesh))Assert(mass!=null && Math.Abs(mass.Area-92)<1E-6,"Planar mesh area must be 12*8-2*2=92.");
+        foreach(var segment in new[]{new Line(P(0,2),P(12,2)),new Line(P(0,4),P(5,4)),new Line(P(7,4),P(12,4))})
+            VerifyConstraintEdges(mesh,segment);
+        var discarded=clean.Params.Output[5].VolatileData.AllData(true).OfType<GH_Curve>().Select(g=>g.Value).ToArray();
+        Assert(discarded.Any(c=>c.ClosestPoint(P(6,4,0.005),out double t) && c.PointAt(t).DistanceTo(P(6,4,0.005))<1E-7),"Cleanup must expose the portion clipped by the hole.");
         Assert(mesher.Params.Input[0].Sources.Single()==clean.Params.Output[0] && mesher.Params.Input[1].Sources.Single()==clean.Params.Output[1] && mesher.Params.Input[2].Sources.Single()==clean.Params.Output[2],"S/E/R wiring changed.");
-        Console.WriteLine($"PASS planar: {mesh.Faces.Count} faces, hole preserved, S/E/R wired.");
+        Console.WriteLine($"PASS planar: {mesh.Faces.Count} faces, area 92, hole open, boundary/hole constraints follow mesh edges, clipped portion exposed, S/E/R wired.");
+    }
+    static void VerifyConstraintEdges(Mesh mesh,Line segment)
+    {
+        var chain=Enumerable.Range(0,mesh.Vertices.Count)
+            .Where(i=>segment.DistanceTo(mesh.Vertices.Point3dAt(i),true)<1E-7)
+            .OrderBy(i=>mesh.Vertices.Point3dAt(i).DistanceTo(segment.From)).ToArray();
+        Assert(chain.Length>=2,"Constraint has no mesh nodes.");
+        Assert(mesh.Vertices.Point3dAt(chain[0]).DistanceTo(segment.From)<1E-7 && mesh.Vertices.Point3dAt(chain[^1]).DistanceTo(segment.To)<1E-7,"Constraint endpoints are missing.");
+        for(int i=1;i<chain.Length;i++)
+        {
+            int a=mesh.TopologyVertices.TopologyVertexIndex(chain[i-1]),b=mesh.TopologyVertices.TopologyVertexIndex(chain[i]);
+            Assert(mesh.TopologyEdges.GetEdgeIndex(a,b)>=0,"Constraint must follow continuous mesh edges.");
+        }
     }
     static void VerifyCleanup(GH_Document doc)
     {
@@ -283,7 +301,8 @@ internal static class ExampleBuilder
         using var canvas=new GH_Canvas{Width=1540,Height=name.StartsWith("02")?1410:name.StartsWith("01")?1150:1050,Document=restored};
         canvas.CreateControl();canvas.Viewport.Size=canvas.Size;canvas.Viewport.Zoom=1;canvas.Viewport.Target=System.Drawing.Point.Empty;
         using var bitmap=canvas.GenerateHiResImageTile(canvas.Viewport,Color.WhiteSmoke);
-        bitmap.Save(Path.Combine(output,name+".png"),ImageFormat.Png);
+        using(var stream=new FileStream(Path.Combine(output,name+".png"),FileMode.Create,FileAccess.Write,FileShare.None))
+            bitmap.Save(stream,ImageFormat.Png);
         canvas.Document=null;
         Console.WriteLine("WROTE "+path);
     }

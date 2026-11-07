@@ -129,8 +129,6 @@ namespace Ant.GrasshopperPlugIn.Components
                 }
                 else
                 {
-                    //geometries.AddRange(doc.Objects.Where(o => layers.Contains(doc.Objects.Find(o.Id).Attributes.LayerIndex)).
-                    //    Select(o => GeometryReference.Get(o)));
                     geometries.AddRange(doc.Objects.Where(o => o.ObjectType != ObjectType.InstanceReference && 
                         layers.Contains(doc.Objects.Find(o.Id).Attributes.LayerIndex)).Select(o => GeometryReference.Get(o)));
 

@@ -1,11 +1,40 @@
 # Ant
 
-Grasshopper tools for Rhino 8 on Windows x64 / .NET 8.
+Grasshopper tools for Rhino 8 on Windows x64 / .NET 8: Gmsh-based planar
+meshing, geometry and mesh cleanup, mesh inspection, user data and workflow utilities.
 
-Current release: **1.1.0**; Git tag: **v1.1.0**.
+Current project version: **1.1.2**. Latest Git tag: **v1.1.0**;
+version 1.1.2 is not tagged.
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
 The plugin version is defined in `Grasshopper/Ant.Grasshopper.csproj` and is
 included in the compiled assembly and Grasshopper plugin information.
+
+Version 1.1.2 uses GMesh 1.2.0.1 on .NET 8 and fixes meshing constraints that
+reach boundaries or cross holes. Version 1.1.1 fixes a Rhino hang in the shared load-time library check.
+The check warns about builds from a different checkout commit and shared GPC
+libraries that differ from the copies shipped beside Ant.
+
+## Components
+
+The **Ant** tab contains the following components, grouped by their actual
+Grasshopper subcategory. Mesh workflows are described in detail below.
+
+| Category | Components |
+| --- | --- |
+| Mesh | Planar Mesh; Mesh Refinement; Clean Geometry; Clean and Merge Mesh; Mesh Quality; Mesh Topology; Mesh Parts; Extract Mesh Faces; Match Mesh Nodes; Match Mesh Faces; Orient Mesh Normals; Triangulate Mesh |
+| Data | Add User Data; Set User Data; Get User Data; Get User Values; Bake User Data; Update Geometry User Data |
+| Query | Get Properties; Filter Properties; Filter User Data |
+| Reference | Reference Objects |
+| Utilities | Auto Orient; Get Document Path; Get Param Data; Grid Dispose; Persistent Counter; Set Gene Pool; SubString |
+| Workflow | If; Switch; Stop; Recompute |
+| Geometry | Join offset curves |
+
+There are 34 visible components and one hidden **CleanGeometry (Legacy)**
+component for loading existing definitions with their original ports.
+Data, Query and Reference tools work with geometry attributes and Rhino document
+objects. Workflow tools select values or input trees, gate data with Stop/Go,
+and trigger recomputation. Utilities cover orientation, grid placement, document
+and parameter access, counters, gene pools and string extraction.
 
 ## Grasshopper examples
 
@@ -19,19 +48,30 @@ file, checking the resulting geometry and connections.
 ## Build
 
 The sibling repositories `Geometry`, `Gmsh.Net` and `Utilities` must be present.
-The .NET 8+ SDK and Visual Studio MSBuild with .NET Framework 4.7.2 targeting
-support are required. Build `GPCUtilities` in Release before the first build.
+`Geometry` supplies GPCGeometry (netstandard2.0) and GMesh 1.2.0.1 (net8.0);
+`Gmsh.Net` supplies the managed binding (netstandard2.0) and the native Windows DLL;
+`Utilities` supplies GPCUtilities (netstandard2.0). Use the Geometry checkout
+containing the GMesh .NET 8 migration and boundary-constraint fix, consolidated
+on local master at commit `8926089` (GMesh 1.2.0.1); this commit has not yet been
+pushed to the remote. Ant references Release
+dependencies even when Ant itself is built in Debug.
+Use a .NET 9 SDK compatible with Geometry's `global.json` and the .NET 8 x64
+runtime. Visual Studio MSBuild and .NET Framework targeting packs are no longer
+required for GMesh. Build `GPCUtilities` in Release before the first build.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Build.ps1
 ```
 
-This builds Gmsh.Net and GMesh before Ant. The plugin and its dependencies are
+This builds Gmsh.Net, GMesh and GPCGeometry before Ant. Geometry build outputs
+are isolated in `Ant/bin/geometry` to preserve Geometry's committed release
+binaries; Ant references the GMesh and GPCGeometry DLLs from that same build.
+The plugin and its dependencies are
 written to `bin/net8.0-windows`. Distribute the GHA together with the DLLs in that
 directory. RhinoCommon and Grasshopper are supplied by Rhino itself.
 The Gmsh native DLL version is read from the local Gmsh.Net project during build.
 The verified native version is Gmsh 4.15.2 (`gmsh-4.15.dll`), with
-Gmsh.Net 4.15.2.1 and GMesh 1.0.1.3.
+Gmsh.Net 4.15.2.1 and GMesh 1.2.0.1.
 Restart Rhino after replacing assemblies that were already loaded.
 
 ## Regression checks
@@ -130,6 +170,16 @@ Clean Geometry to clip/split constraints before meshing. Unmatched geometry
 produces a warning. Invalid surface preparation
 stops mesh generation instead of returning partial results. Gmsh warnings are
 reported without suppressing failed embedded-node recovery.
+
+GMesh 1.2.0.1 fixes the former `Unknown OpenCASCADE point` failure for boundary
+and hole constraints: native vertex coordinates are read directly, rather than
+from tolerance-expanded bounding boxes. The updated first example includes a
+boundary-to-boundary line and a line through the hole; Clean Geometry clips out
+the hole portion before Planar Mesh. Verification checks area 92, an open hole
+and continuous mesh-edge chains along all retained constraint segments.
+The Geometry library adds 10 regression tests, each at scales 1, 0.01 and 0.001,
+including direct GMesh inputs through one or two holes. See
+[examples/README.md](examples/README.md).
 
 Point, line, polyline and planar region refinements are supported. Region holes
 are preserved, and `Mesh Refinement` accepts both `GH_Line` and curve inputs.
