@@ -487,24 +487,16 @@ namespace Ant.GrasshopperPlugIn.Components
 
 				#region Gestione fattore di scala & Opzioni mesh
 
-				tolerance /= 1000;
-
-				_doc = Rhino.RhinoDoc.ActiveDoc;
-				if (_doc?.ModelUnitSystem == Rhino.UnitSystem.Meters)
-				{
-					tolerance /= 1000;
-				}
-
-				double occTolerance = 1E-7;
-				double scaleGeometryFactor = occTolerance / tolerance;                                      // occTolerance/tolerance;
-				double calcTolerance = tolerance * scaleGeometryFactor;
-				double scaleMeshFactor = 1 / scaleGeometryFactor;
-				double sizeScale = size * scaleGeometryFactor;
-				double matchMeshTolerance = tolerance * scaleGeometryFactor * 100;
-				double matchGeomAndMesh = tolerance * scaleGeometryFactor / 10;
-				double rhinoEmbedTolerance = 1E-4;
-				double rhinoMatchTolerance = tolerance * 1000;
-
+                _doc = Rhino.RhinoDoc.ActiveDoc;
+                var tolerances = new MeshToleranceSettings(tolerance, size, _doc?.ModelUnitSystem ?? Rhino.UnitSystem.None);
+                double scaleGeometryFactor = tolerances.GeometryScale;
+                double calcTolerance = tolerances.Calculation;
+                double scaleMeshFactor = tolerances.MeshScale;
+                double sizeScale = tolerances.MeshSize;
+                double matchMeshTolerance = tolerances.MeshMatch;
+                double matchGeomAndMesh = tolerances.GeometryAndMeshMatch;
+                double rhinoEmbedTolerance = tolerances.Projection;
+                double rhinoMatchTolerance = tolerances.RhinoMatch;
 				// tolleranza di OpenCascade: 10E-7,
 				// tolleranza di Gmsh: 10E-8,
 				// tolleranza di GPCGeometry 10E-4
@@ -594,3 +586,4 @@ namespace Ant.GrasshopperPlugIn.Components
 		public override GH_Exposure Exposure => GH_Exposure.primary;
 	}
 }
+

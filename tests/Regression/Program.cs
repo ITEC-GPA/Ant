@@ -98,6 +98,7 @@ static class Program
         });
         foreach(bool tasks in new[]{false,true})
             Check("Run processes both data branches, tasks="+tasks,()=>CheckBranches(tasks));
+        ToleranceChecks.Run(Check);
         UserDataChecks.Run(Check);
         MeshCleanupChecks.Run(Check);
         PlanarGeometryCleanupChecks.Run(Check);
@@ -145,3 +146,4 @@ static class Program
         public SolveResults Compute(List<Brep> surfaces,GMesh.GMeshGenerateOptions options) => ComputeMesh(surfaces,new(),new(),options,1E-4,1E-7,0.001,2);
     }
 }
+

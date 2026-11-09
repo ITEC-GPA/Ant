@@ -5,7 +5,7 @@
     <OutputType>Library</OutputType>
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Version>1.1.4</Version>
+    <Version>1.1.5</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <UseWindowsForms>true</UseWindowsForms>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
@@ -165,6 +165,7 @@
     <StartAction>Program</StartAction>
   </PropertyGroup>
 </Project>
+
 
 
 

@@ -3,8 +3,8 @@
 Grasshopper tools for Rhino 8 on Windows x64 / .NET 8: Gmsh-based planar
 meshing, geometry and mesh cleanup, mesh inspection, user data and workflow utilities.
 
-Current project version: **1.1.4**. Latest Git tag: **v1.1.0**;
-version 1.1.4 is not tagged.
+Current project version: **1.1.5**. Latest Git tag: **v1.1.0**;
+version 1.1.5 is not tagged.
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
 The plugin version is defined in `Grasshopper/Ant.Grasshopper.csproj` and is
 included in the compiled assembly and Grasshopper plugin information.
@@ -88,7 +88,7 @@ generation and multiple Grasshopper branches with tasks enabled and disabled.
 It also verifies refinement copies, transformations, validity and XML/binary
 archive round-trips, including internalized data in a Grasshopper generic
 parameter. Its isolated component server registers Ant without loading other
-user-installed plugins. The complete suite currently contains 85 checks,
+user-installed plugins. The complete suite currently contains 90 checks,
 including cleanup diagnostics, all eight mesh tools, indexed matching against
 exhaustive search, source-index maps, vertex attributes, double precision,
 embedded icons and loading components saved with their original ports.
@@ -382,4 +382,9 @@ Set User Data preserves Rhino dictionary value types and last-value precedence f
 tools/dependencies.json pins Geometry, Gmsh.Net and Utilities commits and the SHA-256 of the prerequisite managed/native binaries. Build.ps1 rejects missing files, changed hashes, different commits or dirty dependency checkouts before compilation. Update the manifest deliberately when validating a new dependency set; do not bypass it for a release. Gmsh.Net build outputs are now isolated under Ant/bin/gmsh; Geometry outputs remain under Ant/bin/geometry. Sibling binaries are not overwritten.
 
 Each build publishes into a new bin/packages directory. build-manifest.json records source commit, dirty-working-tree status, dependency versions/hashes and the hashes of package files. bin/last-package.txt points to the most recent package. tools/Test-Build.ps1 checks the valid set, wrong commit, missing file, wrong hash and package contents (5 checks). The regression suite also passes against the published package (85 checks). This pins local dependencies; it does not claim bit-identical output across different SDKs.
+
+
+## Tolerance compatibility (1.1.5)
+
+Planar Mesh tolerance calculations are centralized without changing arithmetic, operation order or defaults. The input tolerance is divided by 1000, and by another 1000 only for a Rhino document in metres. The OCC reference remains 1e-7, projection remains 1e-4 in model coordinates, and all historical matching multipliers remain unchanged. This preserves existing behavior; it does not introduce unit-invariant projection. Five new checks compare 72 floating-point values bit-for-bit against frozen pre-refactor values and verify projection acceptance just inside/outside the threshold. Full suite: 90/90 passed.
 

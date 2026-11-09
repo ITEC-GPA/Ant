@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.5 - 2026-11-09
+
+- Centralize Planar Mesh tolerance settings without changing values, arithmetic order or metre handling.
+- Add frozen IEEE754 compatibility and projection-boundary checks; 90/90 regressions passed.
+
+
 ## 1.1.4 - 2026-11-09
 
 - Pin and validate sibling dependency commits and prerequisite binary hashes, including Utilities.
@@ -93,5 +99,6 @@ First explicitly versioned release for Rhino 8 on Windows x64 / .NET 8.
   previous writer never stored; recreate affected refinements from their source
   curves. New archives preserve all vertices and closure.
 - Persistent geometry-to-mesh provenance is not part of this release.
+
 
 
