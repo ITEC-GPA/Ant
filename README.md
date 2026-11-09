@@ -3,8 +3,8 @@
 Grasshopper tools for Rhino 8 on Windows x64 / .NET 8: Gmsh-based planar
 meshing, geometry and mesh cleanup, mesh inspection, user data and workflow utilities.
 
-Current project version: **1.1.5**. Latest Git tag: **v1.1.0**;
-version 1.1.5 is not tagged.
+Current project version: **1.1.6**. Latest Git tag: **v1.1.0**;
+version 1.1.6 is not tagged.
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
 The plugin version is defined in `Grasshopper/Ant.Grasshopper.csproj` and is
 included in the compiled assembly and Grasshopper plugin information.
@@ -88,7 +88,7 @@ generation and multiple Grasshopper branches with tasks enabled and disabled.
 It also verifies refinement copies, transformations, validity and XML/binary
 archive round-trips, including internalized data in a Grasshopper generic
 parameter. Its isolated component server registers Ant without loading other
-user-installed plugins. The complete suite currently contains 90 checks,
+user-installed plugins. The complete suite currently contains 97 checks,
 including cleanup diagnostics, all eight mesh tools, indexed matching against
 exhaustive search, source-index maps, vertex attributes, double precision,
 embedded icons and loading components saved with their original ports.
@@ -388,3 +388,12 @@ Each build publishes into a new bin/packages directory. build-manifest.json reco
 
 Planar Mesh tolerance calculations are centralized without changing arithmetic, operation order or defaults. The input tolerance is divided by 1000, and by another 1000 only for a Rhino document in metres. The OCC reference remains 1e-7, projection remains 1e-4 in model coordinates, and all historical matching multipliers remain unchanged. This preserves existing behavior; it does not introduce unit-invariant projection. Five new checks compare 72 floating-point values bit-for-bit against frozen pre-refactor values and verify projection acceptance just inside/outside the threshold. Full suite: 90/90 passed.
 
+
+## Cooperative meshing cancellation (1.1.6)
+
+Cancellation is checked during managed preparation, between faces/constraints/refinements, before and after native generation, during mesh conversion and before publishing outputs. Queued Ant requests wait on a cancellable gate; they do not enter Gmsh after cancellation. A native call already in progress (including Gmsh's internal lock shared with other clients) cannot be interrupted: Ant waits for it to finish and discards its result. Cancellation reports a warning and produces no partial meshes. The captured token is used in both GH task and synchronous paths; timing outputs and saved task preferences are unchanged.
+
+Seven cancellation regressions cover early cancellation, preparation/conversion, queued requests, native completion and gate release after cancellation or failure. The complete suite has 97 checks; the 5 build/package checks are separate. No component GUID, original port, default tolerance or archive format was changed in versions 1.1.3–1.1.6. Historical incomplete refinement archives retain their existing explicit error behavior.
+
+
+Validation on 2026-11-09: build completed without warnings/errors; 97/97 regression checks and 5/5 build checks passed. Three example definitions were generated in bin/verified-examples-1.1.6, saved, reopened and recomputed successfully (including area 92 and edge chains around the hole). The tracked example files were not overwritten.

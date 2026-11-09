@@ -32,8 +32,8 @@ Copy-Item -LiteralPath (Join-Path $repoRoot "Gmsh.Net\dll\windows\$native") -Des
 $git='C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\Git\cmd\git.exe'
 $commit=& $git -c safe.directory=* -C $antRoot rev-parse HEAD
 $dirty=@(& $git -c safe.directory=* -C $antRoot status --porcelain).Count -gt 0
-$files=Get-ChildItem -LiteralPath $package -File | ForEach-Object {
-    @{name=$_.Name;sha256=(Get-FileHash -LiteralPath $_.FullName).Hash}
+$files=Get-ChildItem -LiteralPath $package -File -Recurse | ForEach-Object {
+    @{name=$_.FullName.Substring($package.Length+1);sha256=(Get-FileHash -LiteralPath $_.FullName).Hash}
 }
 @{antCommit=$commit;workingTreeDirty=$dirty;configuration=$Configuration;dependencies=(Get-Content (Join-Path $PSScriptRoot 'dependencies.json') -Raw | ConvertFrom-Json);files=@($files)} |
     ConvertTo-Json -Depth 8 | Set-Content (Join-Path $package 'build-manifest.json') -Encoding UTF8

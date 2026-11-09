@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace Ant.GrasshopperPlugIn.Components
 {
@@ -122,7 +123,7 @@ namespace Ant.GrasshopperPlugIn.Components
 		protected (List<GPC.Geometry.Shape> shapes, Dictionary<GPC.Geometry.Shape, GPC.Geometry.GeometryBase[]> embeddedGeometries,
 		   Dictionary<GPC.Geometry.GeometryBase, double> embeddedGeometriesMeshSize)
 			PreProcessMesh(List<Brep> surfaces, List<IGH_GeometricGoo> constraints, List<IGH_GeometricGoo> refinements, double rhinoEmbedTolerance, double calcTolerance,
-			double rhinoMatchTolerance, double size, ref List<string> _errors, ref List<string> _warnings)
+			double rhinoMatchTolerance, double size, ref List<string> _errors, ref List<string> _warnings, CancellationToken cancellationToken = default)
 		{
 			List<GPC.Geometry.Shape> shapes = new List<GPC.Geometry.Shape>();
 			Dictionary<GPC.Geometry.Shape, GPC.Geometry.GeometryBase[]> embeddedGeometries = new Dictionary<GPC.Geometry.Shape, GPC.Geometry.GeometryBase[]>();
@@ -137,14 +138,16 @@ namespace Ant.GrasshopperPlugIn.Components
 			for (int i = 0; i < refinements.Count; i++) if (refinements[i] != null) refinementIndex.Add(refinements[i].Boundingbox, i);
 			try
 			{
-				MeshInputGeometry.SplitFaces(surfaces, faceBreps);
+				cancellationToken.ThrowIfCancellationRequested();
+                MeshInputGeometry.SplitFaces(surfaces, faceBreps);
 				surfaces = faceBreps;
 				HashSet<IGH_GeometricGoo> hashSet = new HashSet<IGH_GeometricGoo>();
 
 
 				for (int b = 0; b < surfaces.Count; b++)
 				{
-					if (surfaces[b] == null)
+					cancellationToken.ThrowIfCancellationRequested();
+                    if (surfaces[b] == null)
 						continue;
 
 					GPC.Geometry.Polygon3d fill = null;
@@ -240,6 +243,7 @@ namespace Ant.GrasshopperPlugIn.Components
 						{
 							foreach (int ct in constraintIndex.Search(surfaces[b].GetBoundingBox(true), rhinoEmbedTolerance))
 							{
+                            cancellationToken.ThrowIfCancellationRequested();
 								if (constraints[ct] == null)
 									continue;
 
@@ -297,6 +301,7 @@ namespace Ant.GrasshopperPlugIn.Components
 
                         foreach (int refinementId in refinementIndex.Search(surfaces[b].GetBoundingBox(true), rhinoEmbedTolerance))
                         {
+                            cancellationToken.ThrowIfCancellationRequested();
                             var refinement = refinements[refinementId];
                             if (refinement == null || hashSet.Contains(refinement)) continue;
                             if (!MeshInputGeometry.TryProjectRefinement(surfaces[b], refinement, rhinoEmbedTolerance,
@@ -337,7 +342,8 @@ namespace Ant.GrasshopperPlugIn.Components
 				}
 
 			}
-			catch (Exception e)
+			catch (OperationCanceledException) { throw; }
+            catch (Exception e)
 			{
 				_errors.Add($"Mesh input preparation failed: {e.Message}");
 			}
@@ -350,16 +356,22 @@ namespace Ant.GrasshopperPlugIn.Components
 			return (shapes, embeddedGeometries, embeddedGeometriesMeshSize);
 		}
 
-		protected List<GH_Mesh> PostProcessMesh(List<GPC.Geometry.Meshes.Mesh> meshes, ref List<string> _errors)
+		protected List<GH_Mesh> PostProcessMesh(List<GPC.Geometry.Meshes.Mesh> meshes, ref List<string> _errors, CancellationToken cancellationToken = default)
 		{
 			var converted = new List<GH_Mesh>(meshes.Count);
 			try
 			{
 				// Avoid a second layer of blocking tasks for a linear vertex/face conversion.
-				foreach (var mesh in meshes) converted.Add(new GH_Mesh(mesh.ConvertToRhinoMesh()));
+				foreach (var mesh in meshes)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    converted.Add(new GH_Mesh(mesh.ConvertToRhinoMesh()));
+                }
+                cancellationToken.ThrowIfCancellationRequested();
 				return converted;
 			}
-			catch (Exception e)
+			catch (OperationCanceledException) { foreach (var mesh in converted) mesh.Value?.Dispose(); throw; }
+            catch (Exception e)
 			{
 				_errors.Add(e.Message);
 
@@ -369,11 +381,12 @@ namespace Ant.GrasshopperPlugIn.Components
 		}
 
 		protected SolveResults ComputeMesh(List<Brep> surfaces, List<IGH_GeometricGoo> constraints, List<IGH_GeometricGoo> refinements,
-			GPC.Geometry.Meshes.GMesh.GMesh.GMeshGenerateOptions generateOptions, double rhinoEmbedTolerance, double calcTolerance, double rhinoMatchTolerance, double size)
+			GPC.Geometry.Meshes.GMesh.GMesh.GMeshGenerateOptions generateOptions, double rhinoEmbedTolerance, double calcTolerance, double rhinoMatchTolerance, double size, CancellationToken cancellationToken = default)
 		{
 			try
 			{
-				var clock = Stopwatch.StartNew();
+				cancellationToken.ThrowIfCancellationRequested();
+                var clock = Stopwatch.StartNew();
 
 				SolveResults results = new SolveResults();
 
@@ -382,7 +395,7 @@ namespace Ant.GrasshopperPlugIn.Components
 
 				(List<GPC.Geometry.Shape> shapes, Dictionary<GPC.Geometry.Shape, GPC.Geometry.GeometryBase[]> embeddedGeometries,
 					Dictionary<GPC.Geometry.GeometryBase, double> embeddedGeometriesMeshSize) =
-					PreProcessMesh(surfaces, constraints, refinements, rhinoEmbedTolerance, calcTolerance, rhinoMatchTolerance, size, ref errors, ref warnings);
+					PreProcessMesh(surfaces, constraints, refinements, rhinoEmbedTolerance, calcTolerance, rhinoMatchTolerance, size, ref errors, ref warnings, cancellationToken);
 				results.PreparationTime = clock.Elapsed.TotalSeconds;
 
 				if (errors.Count > 0)
@@ -393,13 +406,20 @@ namespace Ant.GrasshopperPlugIn.Components
 					return results;
 				}
 
-				bool status = GPC.Geometry.Meshes.GMesh.GMesh.Generate(shapes, embeddedGeometries, embeddedGeometriesMeshSize, generateOptions,
-					out List<GPC.Geometry.Meshes.Mesh> meshes, out GPC.Geometry.Meshes.GMesh.GMesh.GMeshGenerateMeshStatus meshStatus);
-				results.GenerationTime = clock.Elapsed.TotalSeconds - results.PreparationTime;
+				var generated = NativeMeshGate.Execute(cancellationToken, () =>
+                {
+                    bool success = GPC.Geometry.Meshes.GMesh.GMesh.Generate(shapes, embeddedGeometries, embeddedGeometriesMeshSize, generateOptions,
+                        out List<GPC.Geometry.Meshes.Mesh> nativeMeshes, out GPC.Geometry.Meshes.GMesh.GMesh.GMeshGenerateMeshStatus nativeStatus);
+                    return (success, nativeMeshes, nativeStatus);
+                });
+                bool status = generated.success;
+                var meshes = generated.nativeMeshes;
+                var meshStatus = generated.nativeStatus;
+                results.GenerationTime = clock.Elapsed.TotalSeconds - results.PreparationTime;
 
 				if (status)
 				{
-					List<GH_Mesh> GHMeshes = PostProcessMesh(meshes, ref errors);
+					List<GH_Mesh> GHMeshes = PostProcessMesh(meshes, ref errors, cancellationToken);
 					results.Value = GHMeshes;
 				}
 
@@ -415,7 +435,17 @@ namespace Ant.GrasshopperPlugIn.Components
 
 				return results;
 			}
-			catch (Exception e)
+			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new SolveResults
+                {
+                    Errors = new List<string>(),
+                    Warnings = new List<string> { "Meshing cancelled; no result was published." },
+                    Exceptions = new List<Exception>(),
+                    Value = new List<GH_Mesh>()
+                };
+            }
+            catch (Exception e)
 			{
 				SolveResults results = new SolveResults
 				{
@@ -533,10 +563,11 @@ namespace Ant.GrasshopperPlugIn.Components
 
 				// Componente prova ad usare i task, viene lanciato il thread e poi ritorna.
 				// Poi il componente farà un altro passaggio per raccogliere i risultati
-				if (InPreSolve)
+				var solveToken = CancelToken;
+                if (InPreSolve)
 				{
 					Task<SolveResults> task = Task.Run(() => ComputeMesh(surfaces, constraints, refinements, generateOptions, rhinoEmbedTolerance,
-						calcTolerance, rhinoMatchTolerance, size), CancelToken);
+						calcTolerance, rhinoMatchTolerance, size, solveToken));
 					TaskList.Add(task);
 					return;
 				}
@@ -544,11 +575,20 @@ namespace Ant.GrasshopperPlugIn.Components
 				// risultati non disponibili, vengono calcolati direttamente senza task
 				if (!GetSolveResults(data, out result))
 				{
-					result = ComputeMesh(surfaces, constraints, refinements, generateOptions, rhinoEmbedTolerance, calcTolerance, rhinoMatchTolerance, size);
+					result = ComputeMesh(surfaces, constraints, refinements, generateOptions, rhinoEmbedTolerance, calcTolerance, rhinoMatchTolerance, size, solveToken);
 				}
 
 
-				// Output risultati
+				// Cancellation may arrive after a task completes but before GH collects its output.
+                if (solveToken.IsCancellationRequested && result != null)
+                {
+                    foreach (var mesh in result.Value) mesh.Value?.Dispose();
+                    result.Value.Clear();
+                    result.Errors = new List<string>();
+                    result.Warnings = new List<string> { "Meshing cancelled; no result was published." };
+                    result.Exceptions = new List<Exception>();
+                }
+                // Output risultati
 				if (result != null)
 				{
 					if (result.Errors != null)
@@ -586,4 +626,3 @@ namespace Ant.GrasshopperPlugIn.Components
 		public override GH_Exposure Exposure => GH_Exposure.primary;
 	}
 }
-

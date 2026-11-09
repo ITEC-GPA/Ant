@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.6 - 2026-11-09
+
+- Propagate cooperative cancellation through managed mesh preparation/conversion and native boundaries.
+- Cancel queued Ant requests without entering Gmsh; let already-running native calls finish and discard their results.
+- Dispose cancelled converted meshes and avoid publishing stale task results.
+- Add seven cancellation regressions (97 total); include nested package files in the hash manifest.
+
+
 ## 1.1.5 - 2026-11-09
 
 - Centralize Planar Mesh tolerance settings without changing values, arithmetic order or metre handling.
@@ -99,6 +107,3 @@ First explicitly versioned release for Rhino 8 on Windows x64 / .NET 8.
   previous writer never stored; recreate affected refinements from their source
   curves. New archives preserve all vertices and closure.
 - Persistent geometry-to-mesh provenance is not part of this release.
-
-
-
