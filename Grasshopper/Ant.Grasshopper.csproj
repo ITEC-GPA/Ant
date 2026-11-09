@@ -1,11 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
     <RootNamespace>Ant.GrasshopperPlugIn</RootNamespace>
     <OutputType>Library</OutputType>
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Version>1.1.2</Version>
+    <Version>1.1.3</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <UseWindowsForms>true</UseWindowsForms>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
@@ -165,3 +165,4 @@
     <StartAction>Program</StartAction>
   </PropertyGroup>
 </Project>
+

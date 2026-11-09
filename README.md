@@ -3,8 +3,8 @@
 Grasshopper tools for Rhino 8 on Windows x64 / .NET 8: Gmsh-based planar
 meshing, geometry and mesh cleanup, mesh inspection, user data and workflow utilities.
 
-Current project version: **1.1.2**. Latest Git tag: **v1.1.0**;
-version 1.1.2 is not tagged.
+Current project version: **1.1.3**. Latest Git tag: **v1.1.0**;
+version 1.1.3 is not tagged.
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
 The plugin version is defined in `Grasshopper/Ant.Grasshopper.csproj` and is
 included in the compiled assembly and Grasshopper plugin information.
@@ -89,7 +89,7 @@ generation and multiple Grasshopper branches with tasks enabled and disabled.
 It also verifies refinement copies, transformations, validity and XML/binary
 archive round-trips, including internalized data in a Grasshopper generic
 parameter. Its isolated component server registers Ant without loading other
-user-installed plugins. The complete suite currently contains 79 checks,
+user-installed plugins. The complete suite currently contains 85 checks,
 including cleanup diagnostics, all eight mesh tools, indexed matching against
 exhaustive search, source-index maps, vertex attributes, double precision,
 embedded icons and loading components saved with their original ports.
@@ -372,3 +372,8 @@ Normal-only changes appear in C. Mesh face patches may combine multiple affected
 faces from the same operation for an efficient preview; the log lists stage-local
 face indices (abbreviated after 24). Diagnostic snapshots are independent copies:
 editing them does not change the input or the primary cleaned outputs.
+
+## User data robustness (1.1.3)
+
+Set User Data preserves Rhino dictionary value types and last-value precedence for duplicate keys. Null or unsupported values produce key-specific warnings without overwriting existing data. Update Geometry User Data checks missing document/object references, updates copies, verifies replacement and records an undoable operation. Existing component IDs, ports and archive formats remain unchanged. Six additional regression checks include a Rhino .3dm round-trip and Undo.
+

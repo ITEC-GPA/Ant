@@ -98,6 +98,7 @@ static class Program
         });
         foreach(bool tasks in new[]{false,true})
             Check("Run processes both data branches, tasks="+tasks,()=>CheckBranches(tasks));
+        UserDataChecks.Run(Check);
         MeshCleanupChecks.Run(Check);
         PlanarGeometryCleanupChecks.Run(Check);
         RefinementChecks.Run(Check);

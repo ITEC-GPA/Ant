@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.3 - 2026-11-09
+
+- Validate user data keys, values and document references; preserve supported archive types.
+- Update geometry copies with checked replacement and Undo; always clear the Update request after solving.
+- Add six regression checks: full suite 85/85 passed, including .3dm persistence and Undo.
+
+
 ## 1.1.2 - 2026-11-07
 
 - Update to GMesh 1.2.0.1 (.NET 8), fixing boundary/hole constraint failures
@@ -79,3 +86,4 @@ First explicitly versioned release for Rhino 8 on Windows x64 / .NET 8.
   previous writer never stored; recreate affected refinements from their source
   curves. New archives preserve all vertices and closure.
 - Persistent geometry-to-mesh provenance is not part of this release.
+

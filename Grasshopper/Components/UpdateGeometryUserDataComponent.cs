@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Grasshopper.Kernel;
@@ -53,38 +53,16 @@ namespace Ant.GrasshopperPlugIn.Components
         /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            List<ReferendedGeometryAttribute> attrs = new List<ReferendedGeometryAttribute>();
-            if (!DA.GetDataList(0, attrs))
-                return;
-
-            if (_bake)
+            if (!_bake) return;
+            try
             {
-                Rhino.RhinoDoc doc = Rhino.RhinoDoc.ActiveDoc;
-
-                var groupped = attrs.GroupBy(a => a.ReferenceID);
-                foreach (var refIdGroup in groupped)
-                {
-                    RhinoObject obj = doc.Objects.Find(refIdGroup.Key);
-
-                    foreach (ReferendedGeometryAttribute attr in refIdGroup)
-                    {
-                        try
-                        {
-                            obj.Geometry.UserDictionary.Set(attr.Key, (dynamic)attr.Value.GetType().GetProperty("Value").GetValue(attr.Value, null));
-                        }
-                        catch (Exception e)
-                        {
-                            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, string.Format("Can't store the {0} type", attr.Value.GetType()));
-                            System.Diagnostics.Debug.WriteLine(e.Message);
-                        }
-                    }
-                    obj.CommitChanges();
-                }
-
-                _bake = false;
+                var attrs = new List<ReferendedGeometryAttribute>();
+                if (!DA.GetDataList(0, attrs)) return;
+                Helpers.UserDataStorage.Update(Rhino.RhinoDoc.ActiveDoc, attrs,
+                    message => AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, message));
             }
+            finally { _bake = false; }
         }
-
         /// <summary>
         /// Provides an Icon for the component.
         /// </summary>

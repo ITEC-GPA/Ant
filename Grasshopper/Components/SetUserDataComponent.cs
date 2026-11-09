@@ -66,15 +66,8 @@ namespace Ant.GrasshopperPlugIn.Components
             GeometryBase new_geometry = geometry.Duplicate();
             for (int i = 0; i < keys.Count; i++)
             {
-                try
-                {                    
-                    new_geometry.UserDictionary.Set(keys[i], (dynamic)values[i].GetType().GetProperty("Value").GetValue(values[i], null));
-                }
-                catch (Exception e)
-                {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, string.Format("Can't store the {0} type", values[i].GetType()));
-                    System.Diagnostics.Debug.WriteLine(e.Message);
-                }
+                if (!Helpers.UserDataStorage.TrySet(new_geometry.UserDictionary, keys[i], values[i], out var error))
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, error);
             }
 
             DA.SetData(0, new_geometry);
