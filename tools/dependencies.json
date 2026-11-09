@@ -1,0 +1,34 @@
+{
+  "repositories": [
+    {
+      "commit": "89260896531ed9899564cb651fa68c70a4a43b4c",
+      "name": "Geometry"
+    },
+    {
+      "commit": "817d1d5186b3e58e7c39652c498889afff41c578",
+      "name": "Gmsh.Net"
+    },
+    {
+      "commit": "e57b440b16a0a311a7bf0af2f9cf4d2681b83491",
+      "name": "Utilities"
+    }
+  ],
+  "schema": 1,
+  "files": [
+    {
+      "sha256": "92031B381F9AA426A5F88B48762C72DB89724F784670FFDA8802203FC52A05E5",
+      "path": "Utilities/GPCUtilities/bin/Release/netstandard2.0/GPCUtilities.dll",
+      "version": "3.0.0.0"
+    },
+    {
+      "sha256": "E724B1A3EA78A105472371126184A5284A8F79274774E01116F007240A036EED",
+      "path": "Gmsh.Net/src/GMsh.Net/bin/Release/netstandard2.0/GMsh.Net.dll",
+      "version": "4.15.2.1"
+    },
+    {
+      "sha256": "6CAC3EEFB477265D9FA60BBD869DBBBF7C7CA4CB308C0F8F2B43E91D43DE3C1C",
+      "path": "Gmsh.Net/dll/windows/gmsh-4.15.dll",
+      "version": null
+    }
+  ]
+}

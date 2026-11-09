@@ -3,8 +3,8 @@
 Grasshopper tools for Rhino 8 on Windows x64 / .NET 8: Gmsh-based planar
 meshing, geometry and mesh cleanup, mesh inspection, user data and workflow utilities.
 
-Current project version: **1.1.3**. Latest Git tag: **v1.1.0**;
-version 1.1.3 is not tagged.
+Current project version: **1.1.4**. Latest Git tag: **v1.1.0**;
+version 1.1.4 is not tagged.
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
 The plugin version is defined in `Grasshopper/Ant.Grasshopper.csproj` and is
 included in the compiled assembly and Grasshopper plugin information.
@@ -52,8 +52,7 @@ The sibling repositories `Geometry`, `Gmsh.Net` and `Utilities` must be present.
 `Gmsh.Net` supplies the managed binding (netstandard2.0) and the native Windows DLL;
 `Utilities` supplies GPCUtilities (netstandard2.0). Use the Geometry checkout
 containing the GMesh .NET 8 migration and boundary-constraint fix, consolidated
-on local master at commit `8926089` (GMesh 1.2.0.1); this commit has not yet been
-pushed to the remote. Ant references Release
+at commit `8926089` (GMesh 1.2.0.1). Ant references Release
 dependencies even when Ant itself is built in Debug.
 Use a .NET 9 SDK compatible with Geometry's `global.json` and the .NET 8 x64
 runtime. Visual Studio MSBuild and .NET Framework targeting packs are no longer
@@ -67,8 +66,8 @@ This builds Gmsh.Net, GMesh and GPCGeometry before Ant. Geometry build outputs
 are isolated in `Ant/bin/geometry` to preserve Geometry's committed release
 binaries; Ant references the GMesh and GPCGeometry DLLs from that same build.
 The plugin and its dependencies are
-written to `bin/net8.0-windows`. Distribute the GHA together with the DLLs in that
-directory. RhinoCommon and Grasshopper are supplied by Rhino itself.
+written to `bin/net8.0-windows`. Distribute the fresh package reported by Build.ps1
+under `bin/packages`, with all its DLLs and build-manifest.json. RhinoCommon and Grasshopper are supplied by Rhino itself.
 The Gmsh native DLL version is read from the local Gmsh.Net project during build.
 The verified native version is Gmsh 4.15.2 (`gmsh-4.15.dll`), with
 Gmsh.Net 4.15.2.1 and GMesh 1.2.0.1.
@@ -376,4 +375,11 @@ editing them does not change the input or the primary cleaned outputs.
 ## User data robustness (1.1.3)
 
 Set User Data preserves Rhino dictionary value types and last-value precedence for duplicate keys. Null or unsupported values produce key-specific warnings without overwriting existing data. Update Geometry User Data checks missing document/object references, updates copies, verifies replacement and records an undoable operation. Existing component IDs, ports and archive formats remain unchanged. Six additional regression checks include a Rhino .3dm round-trip and Undo.
+
+
+## Verified dependency set (1.1.4)
+
+tools/dependencies.json pins Geometry, Gmsh.Net and Utilities commits and the SHA-256 of the prerequisite managed/native binaries. Build.ps1 rejects missing files, changed hashes, different commits or dirty dependency checkouts before compilation. Update the manifest deliberately when validating a new dependency set; do not bypass it for a release. Gmsh.Net build outputs are now isolated under Ant/bin/gmsh; Geometry outputs remain under Ant/bin/geometry. Sibling binaries are not overwritten.
+
+Each build publishes into a new bin/packages directory. build-manifest.json records source commit, dirty-working-tree status, dependency versions/hashes and the hashes of package files. bin/last-package.txt points to the most recent package. tools/Test-Build.ps1 checks the valid set, wrong commit, missing file, wrong hash and package contents (5 checks). The regression suite also passes against the published package (85 checks). This pins local dependencies; it does not claim bit-identical output across different SDKs.
 

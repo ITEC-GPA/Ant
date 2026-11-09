@@ -5,7 +5,7 @@
     <OutputType>Library</OutputType>
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Version>1.1.3</Version>
+    <Version>1.1.4</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <UseWindowsForms>true</UseWindowsForms>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
@@ -33,7 +33,7 @@
       <HintPath>$(GeometryArtifactsRoot)\bin\GMesh\release\GMesh.dll</HintPath>
     </Reference>
     <Reference Include="GMsh.Net">
-      <HintPath>$(GmshNetRoot)\src\GMsh.Net\bin\Release\netstandard2.0\GMsh.Net.dll</HintPath>
+      <HintPath>$(MSBuildThisFileDirectory)..\bin\gmsh\bin\GMsh.Net\release\GMsh.Net.dll</HintPath>
     </Reference>
     <Reference Include="GPCGeometry">
       <HintPath>$(GeometryArtifactsRoot)\bin\GPCGeometry\release\GPCGeometry.dll</HintPath>
@@ -165,4 +165,6 @@
     <StartAction>Program</StartAction>
   </PropertyGroup>
 </Project>
+
+
 
