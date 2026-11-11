@@ -7,7 +7,7 @@ namespace Ant.GrasshopperPlugIn
         public override GH_LoadingInstruction PriorityLoad()
         {
             var server = Grasshopper.Instances.ComponentServer;
-            server.AddCategoryShortName("Ant", "Ant");
+            server.AddCategoryShortName("Ant", "A");
             server.AddCategorySymbolName("Ant", 'A');
             server.AddCategoryIcon("Ant", Properties.Resources.PlugInTabIcon);
             Gpc.PluginChecks.PluginBuildCheck.Start(typeof(Loader).Assembly, "Ant");

@@ -28,4 +28,7 @@ foreach($name in @('Ant.Grasshopper.gha','GMesh.dll','GPCGeometry.dll','GPCUtili
 }
 if('RhinoCommon.dll' -in $m.files.name -or 'Grasshopper.dll' -in $m.files.name){throw 'Host libraries must not be shipped'}
 $passed++
+$geometryDependency = (Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json).files | Where-Object { $_.path -eq 'Geometry/GPCGeometry/bin/Release/netstandard2.0/GPCGeometry.dll' }
+if (!$geometryDependency -or (Get-FileHash -LiteralPath (Join-Path $package 'GPCGeometry.dll')).Hash -ne $geometryDependency.sha256) { throw 'Package GPCGeometry must match the pinned shared release.' }
+$passed++
 Write-Host "$passed build checks passed."

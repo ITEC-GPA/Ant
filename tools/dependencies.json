@@ -29,6 +29,11 @@
       "sha256": "6CAC3EEFB477265D9FA60BBD869DBBBF7C7CA4CB308C0F8F2B43E91D43DE3C1C",
       "path": "Gmsh.Net/dll/windows/gmsh-4.15.dll",
       "version": null
+    },
+    {
+      "sha256": "7EF76EDFB4C3736AAE7B6F66B2F3CE30A8BB8DE031C492B03BD52289D6E9D29E",
+      "path": "Geometry/GPCGeometry/bin/Release/netstandard2.0/GPCGeometry.dll",
+      "version": "2.3.0.0"
     }
   ]
 }

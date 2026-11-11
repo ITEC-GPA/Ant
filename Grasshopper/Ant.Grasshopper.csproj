@@ -36,7 +36,7 @@
       <HintPath>$(MSBuildThisFileDirectory)..\bin\gmsh\bin\GMsh.Net\release\GMsh.Net.dll</HintPath>
     </Reference>
     <Reference Include="GPCGeometry">
-      <HintPath>$(GeometryArtifactsRoot)\bin\GPCGeometry\release\GPCGeometry.dll</HintPath>
+      <HintPath>$(MSBuildThisFileDirectory)..\..\Geometry\GPCGeometry\bin\Release\netstandard2.0\GPCGeometry.dll</HintPath>
     </Reference>
     <Reference Include="GPCUtilities">
       <HintPath>..\..\Utilities\GPCUtilities\bin\Release\netstandard2.0\GPCUtilities.dll</HintPath>

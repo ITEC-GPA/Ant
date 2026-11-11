@@ -62,9 +62,11 @@ required for GMesh. Build `GPCUtilities` in Release before the first build.
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Build.ps1
 ```
 
-This builds Gmsh.Net, GMesh and GPCGeometry before Ant. Geometry build outputs
-are isolated in `Ant/bin/geometry` to preserve Geometry's committed release
-binaries; Ant references the GMesh and GPCGeometry DLLs from that same build.
+This builds Gmsh.Net and GMesh before Ant. Geometry build outputs are isolated
+in `Ant/bin/geometry` to preserve Geometry's committed release binaries. Ant
+references GMesh from that build and the released GPCGeometry DLL pinned by
+`tools/dependencies.json`. This keeps GPCGeometry identical to the shared release
+used by Arachne, ReBear and BridGHe, independent of plugin loading order.
 The plugin and its dependencies are
 written to `bin/net8.0-windows`. Distribute the fresh package reported by Build.ps1
 under `bin/packages`, with all its DLLs and build-manifest.json. RhinoCommon and Grasshopper are supplied by Rhino itself.

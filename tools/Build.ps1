@@ -12,7 +12,7 @@ $geometryArtifacts=Join-Path $antRoot 'bin\geometry'
 # Ant consumes the Release library outputs even in its Debug configuration.
 & dotnet build $gmshProject -c Release --artifacts-path (Join-Path $antRoot 'bin\gmsh') -p:GeneratePackageOnBuild=false -p:NuGetAudit=false --ignore-failed-sources -v minimal
 if($LASTEXITCODE) { throw 'Gmsh.Net build failed.' }
-# Isolate GMesh and GPCGeometry outputs from Geometry's committed release binaries.
+# Isolate GMesh outputs; Ant references the pinned released GPCGeometry to share one binary with the other plugins.
 & dotnet build $gmeshProject -c Release --artifacts-path $geometryArtifacts -p:NuGetAudit=false --ignore-failed-sources -v minimal
 if($LASTEXITCODE) { throw 'GMesh build failed.' }
 & dotnet build $antProject -c $Configuration -p:NuGetAudit=false --ignore-failed-sources -v minimal
